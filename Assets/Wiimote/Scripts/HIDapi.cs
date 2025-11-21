@@ -4,7 +4,8 @@ using System.Collections;
 using System;
 using System.Text;
 
-public class HIDapi {
+public class HIDapi
+{
 
     [DllImport("hidapi")]
     public static extern int hid_init();
@@ -61,7 +62,8 @@ public class HIDapi {
     public static extern int hid_write(IntPtr device, byte[] data, UIntPtr length);
 }
 
-struct hid_device_info {
+internal struct hid_device_info
+{
     public string path;
     public ushort vendor_id;
     public ushort product_id;

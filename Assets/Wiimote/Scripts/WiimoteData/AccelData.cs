@@ -21,7 +21,7 @@ namespace WiimoteApi
         public ReadOnlyArray<int> accel { get { return _accel_readonly; } }
         private ReadOnlyArray<int> _accel_readonly;
         private int[] _accel;
-        
+
         /// \brief Size: 3x3. Calibration data for the accelerometer. This is not reported
         ///        by the Wii Remote directly - it is instead collected from normal
         ///        Wii Remote accelerometer data.
@@ -59,7 +59,7 @@ namespace WiimoteApi
             _accel[2] = ((int)data[4] << 2) | ((data[1] >> 6) & 0x01);
 
             //for (int x = 0; x < 3; x++) _accel[x] -= 0x200; // center around zero.
-            
+
             return true;
         }
 
@@ -75,9 +75,9 @@ namespace WiimoteApi
 
             _accel[0] = (int)data1[2] << 2;
             _accel[1] = (int)data2[2] << 2;
-            _accel[2] =   (int)(((data1[0] & 0x60) >> 1) | 
-                                ((data1[1] & 0x60) << 1) | 
-                                ((data2[0] & 0x60) >> 5) | 
+            _accel[2] = (int)(((data1[0] & 0x60) >> 1) |
+                                ((data1[1] & 0x60) << 1) |
+                                ((data2[0] & 0x60) >> 5) |
                                 ((data2[1] & 0x60) >> 3)) << 2;
 
             //for (int x = 0; x < 3; x++) _accel[x] -= 0x200; // center around zero.

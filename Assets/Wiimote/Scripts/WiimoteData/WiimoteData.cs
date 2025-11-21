@@ -17,6 +17,6 @@ namespace WiimoteApi
         ///        of data being passed.
         /// \sa Wiimote::ReadWiimoteData()
         public abstract bool InterpretData(byte[] data);
-        
+
     }
 }

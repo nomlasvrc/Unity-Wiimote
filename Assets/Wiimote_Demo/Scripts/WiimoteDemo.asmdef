@@ -1,0 +1,16 @@
+{
+    "name": "WiimoteDemo",
+    "rootNamespace": "",
+    "references": [
+        "GUID:28f684fc26b2d3b44b66143bff6919c2"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

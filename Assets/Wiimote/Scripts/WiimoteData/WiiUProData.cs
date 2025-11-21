@@ -1,8 +1,10 @@
 using WiimoteApi;
 using WiimoteApi.Util;
 
-namespace WiimoteApi {
-	public class WiiUProData : WiimoteData {
+namespace WiimoteApi
+{
+	public class WiiUProData : WiimoteData
+	{
 
 		/// Pro Controller left stick analog values.  This is a size-2 array [X,Y]
 		/// of RAW (unprocessed) stick data.  These values are in the range 803-3225
@@ -96,12 +98,13 @@ namespace WiimoteApi {
 		public bool dpad_right { get { return _dpad_right; } }
 		private bool _dpad_right;
 
-		private ushort[] lmax = {3225,3291};
-		private ushort[] lmin = {803,843};
-		private ushort[] rmax = {3169,3315};
-		private ushort[] rmin = {852,810};
+		private ushort[] lmax = { 3225, 3291 };
+		private ushort[] lmin = { 803, 843 };
+		private ushort[] rmax = { 3169, 3315 };
+		private ushort[] rmin = { 852, 810 };
 
-		public WiiUProData(Wiimote owner) : base(owner) {
+		public WiiUProData(Wiimote owner) : base(owner)
+		{
 			_lstick = new ushort[2];
 			_lstick_readonly = new ReadOnlyArray<ushort>(_lstick);
 
@@ -110,49 +113,51 @@ namespace WiimoteApi {
 		}
 
 		public override bool InterpretData(byte[] data)
-	    {
-	        if(data == null || data.Length < 11)
-	       		return false;
+		{
+			if (data == null || data.Length < 11)
+				return false;
 
-	       	_lstick[0] = (ushort)((ushort)data[0] | ((ushort)(data[1] & 0x0f) << 8));
-	       	_lstick[1] = (ushort)((ushort)data[4] | ((ushort)(data[5] & 0x0f) << 8));
+			_lstick[0] = (ushort)((ushort)data[0] | ((ushort)(data[1] & 0x0f) << 8));
+			_lstick[1] = (ushort)((ushort)data[4] | ((ushort)(data[5] & 0x0f) << 8));
 
-	       	_rstick[0] = (ushort)((ushort)data[2] | ((ushort)(data[3] & 0x0f) << 8));
-	       	_rstick[1] = (ushort)((ushort)data[6] | ((ushort)(data[7] & 0x0f) << 8));
+			_rstick[0] = (ushort)((ushort)data[2] | ((ushort)(data[3] & 0x0f) << 8));
+			_rstick[1] = (ushort)((ushort)data[6] | ((ushort)(data[7] & 0x0f) << 8));
 
-	       	_dpad_right	= (data[8] & 0x80) != 0x80;
-	       	_dpad_down 	= (data[8] & 0x40) != 0x40;
-	       	_l 			= (data[8] & 0x20) != 0x20;
-	       	_minus	 	= (data[8] & 0x10) != 0x10;
-	       	_home	 	= (data[8] & 0x08) != 0x08;
-	       	_plus	 	= (data[8] & 0x04) != 0x04;
-	       	_r		 	= (data[8] & 0x02) != 0x02;
+			_dpad_right = (data[8] & 0x80) != 0x80;
+			_dpad_down = (data[8] & 0x40) != 0x40;
+			_l = (data[8] & 0x20) != 0x20;
+			_minus = (data[8] & 0x10) != 0x10;
+			_home = (data[8] & 0x08) != 0x08;
+			_plus = (data[8] & 0x04) != 0x04;
+			_r = (data[8] & 0x02) != 0x02;
 
-	       	_zl 		= (data[9] & 0x80) != 0x80;
-	       	_b	 		= (data[9] & 0x40) != 0x40;
-	       	_y 			= (data[9] & 0x20) != 0x20;
-	       	_a	 		= (data[9] & 0x10) != 0x10;
-	       	_x		 	= (data[9] & 0x08) != 0x08;
-	       	_zr		 	= (data[9] & 0x04) != 0x04;
-	       	_dpad_left 	= (data[9] & 0x02) != 0x02;
-	       	_dpad_up 	= (data[9] & 0x01) != 0x01;
+			_zl = (data[9] & 0x80) != 0x80;
+			_b = (data[9] & 0x40) != 0x40;
+			_y = (data[9] & 0x20) != 0x20;
+			_a = (data[9] & 0x10) != 0x10;
+			_x = (data[9] & 0x08) != 0x08;
+			_zr = (data[9] & 0x04) != 0x04;
+			_dpad_left = (data[9] & 0x02) != 0x02;
+			_dpad_up = (data[9] & 0x01) != 0x01;
 
-	       	_lstick_button = (data[10] & 0x02) != 0x02;
-	       	_rstick_button = (data[10] & 0x01) != 0x01;
+			_lstick_button = (data[10] & 0x02) != 0x02;
+			_rstick_button = (data[10] & 0x01) != 0x01;
 
-	       	return true;
-	    }
+			return true;
+		}
 
-	    /// Returns the left stick analog values in the range 0-1.
+		/// Returns the left stick analog values in the range 0-1.
 		///
 		/// \warning This does not take into account zero points or deadzones.  Likewise it does not guaruntee that 0.5f
 		///			 is the zero point.  You must do these calibrations yourself.
-		public float[] GetLeftStick01() {
+		public float[] GetLeftStick01()
+		{
 			float[] ret = new float[2];
-			for(int x=0;x<2;x++) {
+			for (int x = 0; x < 2; x++)
+			{
 				ret[x] = lstick[x];
 				ret[x] -= lmin[x];
-				ret[x] /= lmax[x]-lmin[x];
+				ret[x] /= lmax[x] - lmin[x];
 			}
 			return ret;
 		}
@@ -161,12 +166,14 @@ namespace WiimoteApi {
 		///
 		/// \warning This does not take into account zero points or deadzones.  Likewise it does not guaruntee that 0.5f
 		///			 is the zero point.  You must do these calibrations yourself.
-		public float[] GetRightStick01() {
+		public float[] GetRightStick01()
+		{
 			float[] ret = new float[2];
-			for(int x=0;x<2;x++) {
+			for (int x = 0; x < 2; x++)
+			{
 				ret[x] = rstick[x];
 				ret[x] -= rmin[x];
-				ret[x] /= rmax[x]-rmin[x];
+				ret[x] /= rmax[x] - rmin[x];
 			}
 			return ret;
 		}

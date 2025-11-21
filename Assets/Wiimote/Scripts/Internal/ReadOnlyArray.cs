@@ -45,7 +45,8 @@
         }
 
         /// Returns the length of this array in the given dimension.
-        public int GetLength(int dim) {
+        public int GetLength(int dim)
+        {
             return _data.GetLength(dim);
         }
     }

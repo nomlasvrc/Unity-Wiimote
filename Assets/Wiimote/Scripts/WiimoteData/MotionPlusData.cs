@@ -1,4 +1,5 @@
-﻿namespace WiimoteApi {
+﻿namespace WiimoteApi
+{
     public class MotionPlusData : WiimoteData
     {
         /// The rotational velocity in the Pitch direction of the Wii Remote, as
@@ -78,11 +79,11 @@
             if (data == null || data.Length < 6)
                 return false;
 
-            _YawSpeedRaw    = data[0];
-            _YawSpeedRaw   |= (data[3] & 0xfc) << 6;
-            _RollSpeedRaw   = data[1];
-            _RollSpeedRaw  |= (data[4] & 0xfc) << 6;
-            _PitchSpeedRaw  = data[2];
+            _YawSpeedRaw = data[0];
+            _YawSpeedRaw |= (data[3] & 0xfc) << 6;
+            _RollSpeedRaw = data[1];
+            _RollSpeedRaw |= (data[4] & 0xfc) << 6;
+            _PitchSpeedRaw = data[2];
             _PitchSpeedRaw |= (data[5] & 0xfc) << 6;
 
             _YawSlow = (data[3] & 0x02) == 0x02;
