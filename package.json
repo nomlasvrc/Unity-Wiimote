@@ -7,7 +7,8 @@
   "sample": [
     {
       "displayName": "Wiimote Sample",
-      "path": "Samples~"
+      "description": "A sample scene demonstrating Wiimote functionality.",
+      "path": "Samples~/WiimoteDemo"
     }
   ]
 }
