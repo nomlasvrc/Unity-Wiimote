@@ -4,7 +4,7 @@
   "displayName": "Wiimote",
   "description": "This package provides Wiimote integration for Unity.",
   "unity": "2021.3",
-  "sample": [
+  "samples": [
     {
       "displayName": "Wiimote Sample",
       "description": "A sample scene demonstrating Wiimote functionality.",
