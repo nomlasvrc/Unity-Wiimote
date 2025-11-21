@@ -1,5 +1,11 @@
 {
   "dependencies": {
+    "com.nomlas.wiimote": {
+      "version": "file:com.nomlas.wiimote",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
     "com.unity.collab-proxy": {
       "version": "2.10.2",
       "depth": 0,
