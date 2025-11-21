@@ -3,5 +3,11 @@
   "version": "1.0.0",
   "displayName": "Wiimote",
   "description": "This package provides Wiimote integration for Unity.",
-  "unity": "2021.3"
+  "unity": "2021.3",
+  "sample": [
+    {
+      "displayName": "Wiimote Sample",
+      "path": "Samples~"
+    }
+  ]
 }
