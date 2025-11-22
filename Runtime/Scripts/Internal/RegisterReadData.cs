@@ -1,6 +1,4 @@
-﻿using WiimoteApi;
-
-namespace WiimoteApi.Internal
+﻿namespace WiimoteApi.Internal
 {
     public class RegisterReadData
     {

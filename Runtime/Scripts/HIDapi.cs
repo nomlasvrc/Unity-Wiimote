@@ -1,6 +1,4 @@
-﻿using UnityEngine;
-using System.Runtime.InteropServices;
-using System.Collections;
+﻿using System.Runtime.InteropServices;
 using System;
 using System.Text;
 

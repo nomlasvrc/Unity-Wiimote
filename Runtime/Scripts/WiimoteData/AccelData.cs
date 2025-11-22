@@ -1,5 +1,4 @@
-﻿using UnityEngine;
-using WiimoteApi.Util;
+﻿using WiimoteApi.Util;
 
 namespace WiimoteApi
 {

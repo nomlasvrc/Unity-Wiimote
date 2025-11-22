@@ -1,4 +1,3 @@
-using WiimoteApi;
 using WiimoteApi.Util;
 
 namespace WiimoteApi

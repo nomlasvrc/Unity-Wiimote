@@ -1,7 +1,4 @@
-﻿using UnityEngine;
-using System.Collections;
-
-namespace WiimoteApi
+﻿namespace WiimoteApi
 {
     public abstract class WiimoteData
     {

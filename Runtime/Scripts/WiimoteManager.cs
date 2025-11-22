@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System;
 using System.Threading;
 using System.Runtime.InteropServices;
-using WiimoteApi.Internal;
 
 namespace WiimoteApi
 {
