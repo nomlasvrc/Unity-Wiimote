@@ -1,5 +1,4 @@
-﻿using UnityEngine;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System;
 using System.Threading;
 using System.Runtime.InteropServices;
@@ -7,7 +6,7 @@ using System.Runtime.InteropServices;
 namespace WiimoteApi
 {
 
-    public class WiimoteManager
+    public class WiimoteManager : Logger
     {
         private const ushort vendor_id_wiimote = 0x057e;
         private const ushort product_id_wiimote = 0x0306;
@@ -98,7 +97,7 @@ namespace WiimoteApi
                     remote = new Wiimote(handle, enumerate.path, trueType);
 
                     if (Debug_Messages)
-                        Debug.Log("Found New Remote: " + remote.hidapi_path);
+                        Log("Found New Remote: " + remote.hidapi_path);
 
                     Wiimotes.Add(remote);
 
@@ -169,8 +168,8 @@ namespace WiimoteApi
                     {
                         WriteQueueData wqd = WriteQueue.Dequeue();
                         int res = HIDapi.hid_write(wqd.pointer, wqd.data, new UIntPtr(Convert.ToUInt32(wqd.data.Length)));
-                        if (res == -1) Debug.LogError("HidAPI reports error " + res + " on write: " + Marshal.PtrToStringUni(HIDapi.hid_error(wqd.pointer)));
-                        else if (Debug_Messages) Debug.Log("Sent " + res + "b: [" + wqd.data[0].ToString("X").PadLeft(2, '0') + "] " + BitConverter.ToString(wqd.data, 1));
+                        if (res == -1) LogError("HidAPI reports error " + res + " on write: " + Marshal.PtrToStringUni(HIDapi.hid_error(wqd.pointer)));
+                        else if (Debug_Messages) Log("Sent " + res + "b: [" + wqd.data[0].ToString("X").PadLeft(2, '0') + "] " + BitConverter.ToString(wqd.data, 1));
                     }
                 }
                 Thread.Sleep(MaxWriteFrequency);

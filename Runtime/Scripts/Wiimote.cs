@@ -1,4 +1,3 @@
-using UnityEngine;
 using System;
 using WiimoteApi.Internal;
 using WiimoteApi.Util;
@@ -8,7 +7,7 @@ namespace WiimoteApi
 
     public delegate void ReadResponder(byte[] data);
 
-    public class Wiimote
+    public class Wiimote : Logger
     {
         /// Represents whether or not to turn on rumble when sending reports to
         /// the Wii Remote.  This will only be applied when a data report is sent.
@@ -344,7 +343,7 @@ namespace WiimoteApi
         public bool ActivateWiiMotionPlus()
         {
             if (!wmp_attached)
-                Debug.LogWarning("There is a request to activate the Wii Motion Plus even though it has not been confirmed to exist!  Trying anyway.");
+                LogWarning("There is a request to activate the Wii Motion Plus even though it has not been confirmed to exist!  Trying anyway.");
 
             // Initialize the Wii Motion Plus by writing 0x55 to register 0xA600F0
             int res = SendRegisterWriteRequest(RegisterType.CONTROL, 0xA600F0, new byte[] { 0x55 });
@@ -370,7 +369,7 @@ namespace WiimoteApi
         public bool DeactivateWiiMotionPlus()
         {
             if (current_ext != ExtensionController.MOTIONPLUS && current_ext != ExtensionController.MOTIONPLUS_CLASSIC && current_ext != ExtensionController.MOTIONPLUS_NUNCHUCK)
-                Debug.LogWarning("There is a request to deactivate the Wii Motion Plus even though it has not been activated!  Trying anyway.");
+                LogWarning("There is a request to deactivate the Wii Motion Plus even though it has not been activated!  Trying anyway.");
             int res = SendRegisterWriteRequest(RegisterType.CONTROL, 0xA400F0, new byte[] { 0x55 });
             return res > 0;
         }
@@ -383,7 +382,7 @@ namespace WiimoteApi
         private bool ActivateExtension()
         {
             if (!Status.ext_connected)
-                Debug.LogWarning("There is a request to activate an Extension controller even though it has not been confirmed to exist!  Trying anyway.");
+                LogWarning("There is a request to activate an Extension controller even though it has not been confirmed to exist!  Trying anyway.");
 
             // 1. Initialize the Extension by writing 0x55 to register 0xA400F0
             int res = SendRegisterWriteRequest(RegisterType.CONTROL, 0xA400F0, new byte[] { 0x55 });
@@ -420,7 +419,7 @@ namespace WiimoteApi
 
             int res = WiimoteManager.SendRaw(hidapi_handle, final);
 
-            if (res < -1) Debug.LogError("Incorrect Input to HIDAPI.  No data has been sent.");
+            if (res < -1) LogError("Incorrect Input to HIDAPI.  No data has been sent.");
 
 
             return res;
@@ -455,7 +454,7 @@ namespace WiimoteApi
         {
             if (mode == InputDataType.STATUS_INFO || mode == InputDataType.READ_MEMORY_REGISTERS || mode == InputDataType.ACKNOWLEDGE_OUTPUT_REPORT)
             {
-                Debug.LogError("Passed " + mode.ToString() + " to SendDataReportMode!");
+                LogError("Passed " + mode.ToString() + " to SendDataReportMode!");
                 return -2;
             }
 
@@ -524,7 +523,7 @@ namespace WiimoteApi
         {
             if (CurrentReadData != null)
             {
-                Debug.LogWarning("Aborting read request; There is already a read request pending!");
+                LogWarning("Aborting read request; There is already a read request pending!");
                 return -2;
             }
 
@@ -602,7 +601,7 @@ namespace WiimoteApi
                 data[x] = buf[x + 1];
 
             if (WiimoteManager.Debug_Messages)
-                Debug.Log("Recieved: [" + buf[0].ToString("X").PadLeft(2, '0') + "] " + BitConverter.ToString(data));
+                Log("Recieved: [" + buf[0].ToString("X").PadLeft(2, '0') + "] " + BitConverter.ToString(data));
 
             // Variable names used throughout the switch/case block
             byte[] buttons;
@@ -637,7 +636,7 @@ namespace WiimoteApi
                     {
                         if (Status.ext_connected)                // The Wii Remote doesn't allow reading from the extension identifier
                         {                                        // when nothing is connected.
-                            Debug.Log("An extension has been connected.");
+                            Log("An extension has been connected.");
                             if (current_ext != ExtensionController.MOTIONPLUS)
                             {
                                 ActivateExtension();
@@ -650,7 +649,7 @@ namespace WiimoteApi
                         {
                             if (!ExpectingWiiMotionPlusSwitch)
                                 _current_ext = ExtensionController.NONE;
-                            Debug.Log("An extension has been disconnected.");
+                            Log("An extension has been disconnected.");
                         }
                     }
                     break;
@@ -660,7 +659,7 @@ namespace WiimoteApi
 
                     if (CurrentReadData == null)
                     {
-                        Debug.LogWarning("Recived Register Read Report when none was expected.  Ignoring.");
+                        LogWarning("Recived Register Read Report when none was expected.  Ignoring.");
                         return status;
                     }
 
@@ -671,7 +670,7 @@ namespace WiimoteApi
                     if (error == 0x07)
                     {
                         if (CurrentReadData.Offset != 0xa600fa)
-                            Debug.LogError("Wiimote reports Read Register error 7: Attempting to read from a write-only register (" + CurrentReadData.Offset.ToString("x") + ").  Aborting read.");
+                            LogError("Wiimote reports Read Register error 7: Attempting to read from a write-only register (" + CurrentReadData.Offset.ToString("x") + ").  Aborting read.");
 
                         CurrentReadData = null;
                         return status;
@@ -680,7 +679,7 @@ namespace WiimoteApi
                     ushort lowOffset = BitConverter.ToUInt16(new byte[] { data[4], data[3] }, 0);
                     ushort expected = (ushort)CurrentReadData.ExpectedOffset;
                     if (expected != lowOffset)
-                        Debug.LogWarning("Expected Register Read Offset (" + expected + ") does not match reported offset from Wii Remote (" + lowOffset + ")");
+                        LogWarning("Expected Register Read Offset (" + expected + ") does not match reported offset from Wii Remote (" + lowOffset + ")");
                     byte[] read = new byte[size];
                     for (int x = 0; x < size; x++)
                         read[x] = data[x + 5];
@@ -805,7 +804,7 @@ namespace WiimoteApi
                     }
                     else if (WiimoteManager.Debug_Messages)
                     {
-                        Debug.LogWarning(
+                        LogWarning(
                             "Recieved two REPORT_INTERLEAVED (" + InputDataType.REPORT_INTERLEAVED.ToString("x") + ") reports in a row!  "
                             + "Expected REPORT_INTERLEAVED_ALT (" + InputDataType.REPORT_INTERLEAVED_ALT.ToString("x") + ").  Ignoring!"
                         );
@@ -834,7 +833,7 @@ namespace WiimoteApi
                     }
                     else if (WiimoteManager.Debug_Messages)
                     {
-                        Debug.LogWarning(
+                        LogWarning(
                             "Recieved two REPORT_INTERLEAVED_ALT (" + InputDataType.REPORT_INTERLEAVED_ALT.ToString("x") + ") reports in a row!  "
                             + "Expected REPORT_INTERLEAVED (" + InputDataType.REPORT_INTERLEAVED.ToString("x") + ").  Ignoring!"
                         );
