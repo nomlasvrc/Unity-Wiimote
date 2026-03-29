@@ -1,5 +1,4 @@
-﻿using UnityEngine;
-using WiimoteApi.Util;
+﻿using WiimoteApi.Util;
 
 namespace WiimoteApi
 {
@@ -18,10 +17,10 @@ namespace WiimoteApi
         /// Up/Down:          +Z/-Z\n
         /// Left/Right:       +X/-X\n
         /// Forward/Backward: -Y/+Y\n
-        public ReadOnlyArray<int> accel { get { return _accel_readonly; } }
+        public ReadOnlyArray<int> Accel => _accel_readonly;
         private ReadOnlyArray<int> _accel_readonly;
         private int[] _accel;
-        
+
         /// \brief Size: 3x3. Calibration data for the accelerometer. This is not reported
         ///        by the Wii Remote directly - it is instead collected from normal
         ///        Wii Remote accelerometer data.
@@ -59,7 +58,7 @@ namespace WiimoteApi
             _accel[2] = ((int)data[4] << 2) | ((data[1] >> 6) & 0x01);
 
             //for (int x = 0; x < 3; x++) _accel[x] -= 0x200; // center around zero.
-            
+
             return true;
         }
 
@@ -75,9 +74,9 @@ namespace WiimoteApi
 
             _accel[0] = (int)data1[2] << 2;
             _accel[1] = (int)data2[2] << 2;
-            _accel[2] =   (int)(((data1[0] & 0x60) >> 1) | 
-                                ((data1[1] & 0x60) << 1) | 
-                                ((data2[0] & 0x60) >> 5) | 
+            _accel[2] = (int)(((data1[0] & 0x60) >> 1) |
+                                ((data1[1] & 0x60) << 1) |
+                                ((data2[0] & 0x60) >> 5) |
                                 ((data2[1] & 0x60) >> 3)) << 2;
 
             //for (int x = 0; x < 3; x++) _accel[x] -= 0x200; // center around zero.
@@ -92,7 +91,7 @@ namespace WiimoteApi
         public void CalibrateAccel(AccelCalibrationStep step)
         {
             for (int x = 0; x < 3; x++)
-                accel_calib[(int)step, x] = accel[x];
+                accel_calib[(int)step, x] = Accel[x];
         }
 
         public float[] GetAccelZeroPoints()
@@ -118,9 +117,9 @@ namespace WiimoteApi
         {
             float[] o = GetAccelZeroPoints();
 
-            float x_raw = accel[0];
-            float y_raw = accel[1];
-            float z_raw = accel[2];
+            float x_raw = Accel[0];
+            float y_raw = Accel[1];
+            float z_raw = Accel[2];
 
             float[] ret = new float[3];
             ret[0] = (x_raw - o[0]) / (accel_calib[2, 0] - o[0]);

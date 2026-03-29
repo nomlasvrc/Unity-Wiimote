@@ -1,4 +1,5 @@
-﻿namespace WiimoteApi {
+﻿namespace WiimoteApi
+{
     public class MotionPlusData : WiimoteData
     {
         /// The rotational velocity in the Pitch direction of the Wii Remote, as
@@ -7,7 +8,7 @@
         /// \note The Wii Remote sends updates at a frequency of 95Hz.  So, one way
         ///       of finding the change in degrees over the previous report is to divide
         ///       this value by 95.
-        public float PitchSpeed { get { return _PitchSpeed; } }
+        public float PitchSpeed => _PitchSpeed;
         private float _PitchSpeed = 0;
 
         private int _PitchSpeedRaw = 0;
@@ -18,7 +19,7 @@
         /// \note The Wii Remote sends updates at a frequency of 95Hz.  So, one way
         ///       of finding the change in degrees over the previous report is to divide
         ///       this value by 95.
-        public float YawSpeed { get { return _YawSpeed; } }
+        public float YawSpeed => _YawSpeed;
         private float _YawSpeed = 0;
 
         private int _YawSpeedRaw = 0;
@@ -29,7 +30,7 @@
         /// \note The Wii Remote sends updates at a frequency of 95Hz.  So, one way
         ///       of finding the change in degrees over the previous report is to divide
         ///       this value by 95.
-        public float RollSpeed { get { return _RollSpeed; } }
+        public float RollSpeed => _RollSpeed;
         private float _RollSpeed;
 
         private int _RollSpeedRaw = 0;
@@ -38,26 +39,26 @@
         /// Pitch direction.  This means that it is more precise as it doesn't have
         /// to report higher values.  If false often, it is more likely that the Wii Motion
         /// Plus will "fall out of sync" with the real world.
-        public bool PitchSlow { get { return _PitchSlow; } }
+        public bool PitchSlow => _PitchSlow;
         private bool _PitchSlow = false;
 
         /// If true, the Wii Motion Plus reports that it is in "slow" mode in the
         /// Yaw direction.  This means that it is more precise as it doesn't have
         /// to report higher values.  If false often, it is more likely that the Wii Motion
         /// Plus will "fall out of sync" with the real world.
-        public bool YawSlow { get { return _YawSlow; } }
+        public bool YawSlow => _YawSlow;
         private bool _YawSlow = false;
 
         /// If true, the Wii Motion Plus reports that it is in "slow" mode in the
         /// Roll direction.  This means that it is more precise as it doesn't have
         /// to report higher values.  If false often, it is more likely that the Wii Motion
         /// Plus will "fall out of sync" with the real world.
-        public bool RollSlow { get { return _RollSlow; } }
+        public bool RollSlow => _RollSlow;
         private bool _RollSlow = false;
 
         /// If true, the Wii Motion Plus reports that an extension is connected in its
         /// extension port.
-        public bool ExtensionConnected { get { return _ExtensionConnected; } }
+        public bool ExtensionConnected => _ExtensionConnected;
         private bool _ExtensionConnected = false;
 
         private int _PitchZero = 8063;
@@ -78,11 +79,11 @@
             if (data == null || data.Length < 6)
                 return false;
 
-            _YawSpeedRaw    = data[0];
-            _YawSpeedRaw   |= (data[3] & 0xfc) << 6;
-            _RollSpeedRaw   = data[1];
-            _RollSpeedRaw  |= (data[4] & 0xfc) << 6;
-            _PitchSpeedRaw  = data[2];
+            _YawSpeedRaw = data[0];
+            _YawSpeedRaw |= (data[3] & 0xfc) << 6;
+            _RollSpeedRaw = data[1];
+            _RollSpeedRaw |= (data[4] & 0xfc) << 6;
+            _PitchSpeedRaw = data[2];
             _PitchSpeedRaw |= (data[5] & 0xfc) << 6;
 
             _YawSlow = (data[3] & 0x02) == 0x02;

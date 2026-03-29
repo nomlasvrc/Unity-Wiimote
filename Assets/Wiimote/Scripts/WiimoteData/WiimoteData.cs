@@ -1,7 +1,4 @@
-﻿using UnityEngine;
-using System.Collections;
-
-namespace WiimoteApi
+﻿namespace WiimoteApi
 {
     public abstract class WiimoteData
     {
@@ -17,6 +14,6 @@ namespace WiimoteApi
         ///        of data being passed.
         /// \sa Wiimote::ReadWiimoteData()
         public abstract bool InterpretData(byte[] data);
-        
+
     }
 }

@@ -1,5 +1,4 @@
-﻿using UnityEngine;
-using WiimoteApi.Util;
+﻿using WiimoteApi.Util;
 
 namespace WiimoteApi
 {
@@ -7,35 +6,35 @@ namespace WiimoteApi
     {
         /// Size: 4.  An array of what Player LEDs are on as reported by
         /// the Wii Remote.  This is only updated when the Wii Remote sends status reports.
-        public ReadOnlyArray<bool> led { get { return _led_readonly; } }
+        public ReadOnlyArray<bool> led => _led_readonly;
         private ReadOnlyArray<bool> _led_readonly;
         private bool[] _led;
 
         /// \brief True if the Wii Remote's batteries are low, as reported by the Wii Remote.
         ///        This is only updated when the Wii Remote sends status reports.
         /// \sa battery_level
-        public bool battery_low { get { return _battery_low; } }
+        public bool battery_low => _battery_low;
         private bool _battery_low;
 
         /// True if an extension controller is connected, as reported by the Wii Remote.
         /// This is only updated when the Wii Remote sends status reports.
-        public bool ext_connected { get { return _ext_connected; } }
+        public bool ext_connected => _ext_connected;
         private bool _ext_connected;
 
         /// True if the speaker is currently enabled, as reported by the Wii Remote.
         /// This is only updated when the Wii Remote sends status reports.
-        public bool speaker_enabled { get { return _speaker_enabled; } }
+        public bool speaker_enabled => _speaker_enabled;
         private bool _speaker_enabled;
 
         /// True if IR is currently enabled, as reported by the Wii Remote.
         /// This is only updated when the Wii Remote sends status reports.
-        public bool ir_enabled { get { return _ir_enabled; } }
+        public bool ir_enabled => _ir_enabled;
         private bool _ir_enabled;
 
         /// \brief The current battery level, as reported by the Wii Remote.
         ///        This is only updated when the Wii Remote sends status reports.
         /// \sa battery_low
-        public byte battery_level { get { return _battery_level; } }
+        public byte battery_level => _battery_level;
         private byte _battery_level;
 
         public StatusData(Wiimote Owner)

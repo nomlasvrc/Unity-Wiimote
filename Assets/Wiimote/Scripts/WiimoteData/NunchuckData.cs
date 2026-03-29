@@ -1,11 +1,12 @@
 using WiimoteApi.Util;
 
-namespace WiimoteApi {
+namespace WiimoteApi
+{
     public class NunchuckData : WiimoteData
     {
         /// Nunchuck accelerometer values.  These are in the same (RAW) format
         /// as Wiimote::accel.
-        public ReadOnlyArray<int> accel { get { return _accel_readonly; } }
+        public ReadOnlyArray<int> accel => _accel_readonly;
         private ReadOnlyArray<int> _accel_readonly;
         private int[] _accel;
 
@@ -13,15 +14,15 @@ namespace WiimoteApi {
         /// RAW (unprocessed) stick data.  Generally the analog stick returns
         /// values in the range 35-228 for X and 27-220 for Y.  The center for
         /// both is around 128.
-        public ReadOnlyArray<byte> stick { get { return _stick_readonly; } }
+        public ReadOnlyArray<byte> stick => _stick_readonly;
         private ReadOnlyArray<byte> _stick_readonly;
         private byte[] _stick;
 
         /// Button: C
-        public bool c { get { return _c; } }
+        public bool c => _c;
         private bool _c;
         /// Button: Z
-        public bool z { get { return _z; } }
+        public bool z => _z;
         private bool _z;
 
         public NunchuckData(Wiimote Owner)
@@ -34,8 +35,10 @@ namespace WiimoteApi {
             _stick_readonly = new ReadOnlyArray<byte>(_stick);
         }
 
-        public override bool InterpretData(byte[] data) {
-            if(data == null || data.Length < 6) {
+        public override bool InterpretData(byte[] data)
+        {
+            if (data == null || data.Length < 6)
+            {
                 _accel[0] = 0; _accel[1] = 0; _accel[2] = 0;
                 _stick[0] = 128; _stick[1] = 128;
                 _c = false;
@@ -57,13 +60,15 @@ namespace WiimoteApi {
 
         /// Returns a size 2 [X, Y] array of the analog stick's position, in the range
         /// 0 - 1.  This takes into account typical Nunchuck data ranges and zero points.
-        public float[] GetStick01() {
+        public float[] GetStick01()
+        {
             float[] ret = new float[2];
             ret[0] = _stick[0];
             ret[0] -= 35;
             ret[1] = stick[1];
             ret[1] -= 27;
-            for(int x=0;x<2;x++) {
+            for (int x = 0; x < 2; x++)
+            {
                 ret[x] /= 193f;
             }
             return ret;

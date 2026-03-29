@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+﻿
 using WiimoteApi.Util;
 
 namespace WiimoteApi
@@ -20,7 +20,7 @@ namespace WiimoteApi
         /// \code int[dot index, x (0) / y (1) / size (2) / xmin (3) / ymin (4) / xmax (5) / ymax (6) / intensity (7)] \endcode
         /// 
         /// \sa IRDataType, Wiimote::SetupIRCamera(IRDataType)
-        public ReadOnlyMatrix<int> ir { get { return _ir_readonly; } }
+        public ReadOnlyMatrix<int> ir => _ir_readonly;
         private ReadOnlyMatrix<int> _ir_readonly;
         private int[,] _ir;
 
@@ -59,7 +59,8 @@ namespace WiimoteApi
             byte[] subset = new byte[9];
             int[] res;
 
-            for (int x = 0; x < 4; x++) {
+            for (int x = 0; x < 4; x++)
+            {
                 int index = x * 9;
                 byte[] data = index >= 18 ? data1 : data2;
                 index %= 18;
@@ -188,9 +189,9 @@ namespace WiimoteApi
 
             float[] accel = Owner.Accel.GetCalibratedAccelData();
 
-            float rotation = Mathf.Atan2(accel[2], accel[0]) - (float)(Mathf.PI / 2.0f);
-            float cos = Mathf.Cos(rotation);
-            float sin = Mathf.Sin(rotation);
+            double rotation = Math.Atan2(accel[2], accel[0]) - (Math.PI / 2.0f);
+            float cos = (float)Math.Cos(rotation);
+            float sin = (float)Math.Sin(rotation);
             ret[0] = midpoint[0] * cos + midpoint[1] * sin;
             ret[1] = -midpoint[0] * sin + midpoint[1] * cos;
             ret[0] += 0.5f;
@@ -233,13 +234,17 @@ namespace WiimoteApi
             // If necessary, change the current "sensor bar" IR indices to new ones.  This happens if one of the dots went out of focus and a new one took its place.
             // We do this because the Wii Remote reports "consistent" IR dot indices - that is, it tracks the IR dots and doesn't change their index in the IR report.
             // This way we can rule out extraneous dots that pop in and out randomly as they aren't being tracked.
-            for (int x = 0; x < 2; x++) {
-                if (SensorBarIndices[x] == -1 || _ir[SensorBarIndices[x], 0] == -1) {
+            for (int x = 0; x < 2; x++)
+            {
+                if (SensorBarIndices[x] == -1 || _ir[SensorBarIndices[x], 0] == -1)
+                {
                     SensorBarIndices[x] = -1;
-                    for (int y = 0; y < 4; y++) {
+                    for (int y = 0; y < 4; y++)
+                    {
                         if (SensorBarIndices[(x + 1) % 2] == y) continue; // If the other sensor bar index is this one, ignore it.
 
-                        if (_ir[y, 0] != -1) { // If this index is valid, use it.
+                        if (_ir[y, 0] != -1)
+                        { // If this index is valid, use it.
                             SensorBarIndices[x] = y;
                             y = 4; // end loop
                         }
@@ -276,7 +281,8 @@ namespace WiimoteApi
                 LastIRSeparation[1] = ret[1, 1] - ret[0, 1];
 
                 return ret;
-            } else if (predict && SensorBarIndices[0] != -1) // We have enought data to predict (1 dot) and predicting was requested
+            }
+            else if (predict && SensorBarIndices[0] != -1) // We have enought data to predict (1 dot) and predicting was requested
             {
                 float[,] ret = new float[2, 3];
                 ret[0, 0] = _ir[SensorBarIndices[0], 0];
@@ -288,7 +294,8 @@ namespace WiimoteApi
                 ret[1, 2] = -1;
 
                 return ret;
-            } else // We don't have enough data
+            }
+            else // We don't have enough data
             {
                 LastIRSeparation[0] = 0;
                 LastIRSeparation[1] = 0;
