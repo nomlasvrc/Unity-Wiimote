@@ -2,7 +2,7 @@
 
 namespace WiimoteApi
 {
-    public class AccelData : WiimoteData
+    public partial class AccelData : WiimoteData
     {
         /// \brief Current remote-space acceleration, in the Wii Remote's coordinate system.
         ///        These are RAW values, so they are not with respect to a zero point.  See CalibrateAccel().

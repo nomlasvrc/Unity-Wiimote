@@ -6,12 +6,12 @@ namespace WiimoteApi
 
     public delegate void ReadResponder(byte[] data);
 
-    public class Wiimote : Logger
+    public partial class Wiimote : Logger, IDisposable
     {
         /// Represents whether or not to turn on rumble when sending reports to
         /// the Wii Remote.  This will only be applied when a data report is sent.
         /// That is, simply setting this flag will not instantly enable rumble.
-        public bool RumbleOn = false;
+        public bool RumbleOn { get; set; }
 
         /// Accelerometer data component
         public AccelData Accel => _Accel;
@@ -92,8 +92,13 @@ namespace WiimoteApi
 
         /// A pointer representing HIDApi's low-level device handle to this
         /// Wii Remote.  Use this when interfacing directly with HIDApi.
-        public IntPtr hidapi_handle => _hidapi_handle;
         private IntPtr _hidapi_handle = IntPtr.Zero;
+
+        /// <summary>Gets whether this controller still owns an open HID handle.</summary>
+        public bool IsConnected => Volatile.Read(ref _hidapi_handle) != IntPtr.Zero;
+
+        /// <summary>Gets the native HID handle. Prefer the high-level APIs.</summary>
+        public IntPtr DangerousHandle => Volatile.Read(ref _hidapi_handle);
 
         /// The RAW (unprocessesed) extension data reported by the Wii Remote.  This could
         /// be used for debugging new / undocumented extension controllers.
@@ -102,8 +107,7 @@ namespace WiimoteApi
 
         /// The low-level bluetooth HID path of this Wii Remote.  Use this
         /// when interfacing directly with HIDApi.
-        public string hidapi_path => _hidapi_path;
-        private string _hidapi_path;
+        public string DevicePath { get; }
 
         public WiimoteType Type => _Type;
         private WiimoteType _Type;
@@ -113,17 +117,23 @@ namespace WiimoteApi
         private InputDataType last_report_type = InputDataType.REPORT_BUTTONS;
         private bool expecting_status_report = false;
 
+        /// <summary>Raised after a complete input report has been interpreted.</summary>
+        public event EventHandler<WiimoteDataReceivedEventArgs>? DataReceived;
+
+        /// <summary>Gets the most recently interpreted input report type.</summary>
+        public InputDataType? LastReportType { get; private set; }
+
         /// True if a Wii Motion Plus is attached to the Wii Remote, and it
         /// has NOT BEEN ACTIVATED.  When the WMP is activated this value is
         /// false.  This is only updated when WMP state is requested from
         /// Wii Remote registers (see: RequestIdentifyWiiMotionPlus())
-        public bool wmp_attached => _wmp_attached;
+        private bool wmp_attached => _wmp_attached;
         private bool _wmp_attached = false;
 
         /// The current extension connected to the Wii Remote.  This is only updated
         /// when the Wii Remote reports an extension change (this should update
         /// automatically).
-        public ExtensionController current_ext => _current_ext;
+        private ExtensionController current_ext => _current_ext;
         private ExtensionController _current_ext = ExtensionController.NONE;
 
 
@@ -132,11 +142,11 @@ namespace WiimoteApi
 
         private bool ExpectingWiiMotionPlusSwitch = false;
 
-        public Wiimote(IntPtr hidapi_handle, string hidapi_path, WiimoteType Type)
+        public Wiimote(IntPtr handle, string devicePath, WiimoteType type)
         {
-            _hidapi_handle = hidapi_handle;
-            _hidapi_path = hidapi_path;
-            _Type = Type;
+            _hidapi_handle = handle;
+            DevicePath = devicePath ?? throw new ArgumentNullException(nameof(devicePath));
+            _Type = type;
 
             _Accel = new AccelData(this);
             _Button = new ButtonData(this);
@@ -145,6 +155,13 @@ namespace WiimoteApi
             _Extension = null;
 
             //RequestIdentifyWiiMotionPlus(); // why not?
+        }
+
+        public void Dispose()
+        {
+            IntPtr handle = Interlocked.Exchange(ref _hidapi_handle, IntPtr.Zero);
+            WiimoteManager.CloseHandle(handle);
+            GC.SuppressFinalize(this);
         }
 
         private static byte[] ID_InactiveMotionPlus = new byte[] { 0x00, 0x00, 0xA6, 0x20, 0x00, 0x05 };
@@ -416,12 +433,8 @@ namespace WiimoteApi
             if (RumbleOn)
                 final[1] |= 0x01;
 
-            int res = WiimoteManager.SendRaw(hidapi_handle, final);
-
-            if (res < -1) LogError("Incorrect Input to HIDAPI.  No data has been sent.");
-
-
-            return res;
+            _ = WiimoteManager.SendRawAsync(DangerousHandle, final);
+            return 0;
         }
 
         /// \brief Updates the Player LEDs on the bottom of the Wii Remote
@@ -588,18 +601,25 @@ namespace WiimoteApi
         ///     ret = wiimote.ReadWiimoteData();
         /// } while (ret > 0);
         /// \endcode
-        public int ReadWiimoteData()
+        private int ReadOneReport()
         {
             byte[] buf = new byte[22];
-            int status = WiimoteManager.RecieveRaw(hidapi_handle, buf);
+            int status = WiimoteManager.ReceiveRaw(DangerousHandle, buf);
             if (status <= 0) return status; // Either there is some sort of error or we haven't recieved anything
 
-            int typesize = GetInputDataTypeSize((InputDataType)buf[0]);
+            InputDataType reportType = (InputDataType)buf[0];
+            int typesize = GetInputDataTypeSize(reportType);
+            if (typesize == 0 || status < typesize + 1)
+            {
+                LogWarning($"Ignoring malformed or unknown report 0x{buf[0]:X2} ({status} bytes).");
+                return -3;
+            }
+
             byte[] data = new byte[typesize];
             for (int x = 0; x < data.Length; x++)
                 data[x] = buf[x + 1];
 
-            if (WiimoteManager.Debug_Messages)
+            if (WiimoteManager.EnableDebugLogging)
                 Log("Recieved: [" + buf[0].ToString("X").PadLeft(2, '0') + "] " + BitConverter.ToString(data));
 
             // Variable names used throughout the switch/case block
@@ -608,7 +628,7 @@ namespace WiimoteApi
             byte[]? ext = null;
             byte[] ir;
 
-            switch ((InputDataType)buf[0]) // buf[0] is the output ID byte
+            switch (reportType) // buf[0] is the output ID byte
             {
                 case InputDataType.STATUS_INFO: // done.
                     buttons = new byte[] { data[0], data[1] };
@@ -801,7 +821,7 @@ namespace WiimoteApi
                         ExpectingSecondInterleavedPacket = true;
                         InterleavedDataBuffer = data;
                     }
-                    else if (WiimoteManager.Debug_Messages)
+                    else if (WiimoteManager.EnableDebugLogging)
                     {
                         LogWarning(
                             "Recieved two REPORT_INTERLEAVED (" + InputDataType.REPORT_INTERLEAVED.ToString("x") + ") reports in a row!  "
@@ -830,7 +850,7 @@ namespace WiimoteApi
                         Ir.InterpretDataInterleaved(ir1, ir2);
                         Accel.InterpretDataInterleaved(InterleavedDataBuffer, data);
                     }
-                    else if (WiimoteManager.Debug_Messages)
+                    else if (WiimoteManager.EnableDebugLogging)
                     {
                         LogWarning(
                             "Recieved two REPORT_INTERLEAVED_ALT (" + InputDataType.REPORT_INTERLEAVED_ALT.ToString("x") + ") reports in a row!  "
@@ -845,7 +865,40 @@ namespace WiimoteApi
             else
                 _RawExtension = new ReadOnlyArray<byte>(ext);
 
+            LastReportType = reportType;
+            DataReceived?.Invoke(this, new WiimoteDataReceivedEventArgs(reportType, status));
             return status;
+        }
+
+        /// <summary>Reads and interprets all reports currently waiting in HIDAPI.</summary>
+        /// <returns>The number of reports interpreted.</returns>
+        public int ReadAvailable()
+        {
+            int count = 0;
+            int result;
+            while ((result = ReadOneReport()) > 0)
+                count++;
+
+            return result < 0 ? result : count;
+        }
+
+        /// <summary>Continuously polls this controller until cancellation is requested.</summary>
+        public async Task ReadLoopAsync(
+            TimeSpan pollInterval,
+            CancellationToken cancellationToken = default)
+        {
+            if (pollInterval < TimeSpan.Zero)
+                throw new ArgumentOutOfRangeException(nameof(pollInterval));
+
+            while (true)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                int result = ReadAvailable();
+                if (result < 0)
+                    throw new IOException($"HID read failed with error {result}.");
+
+                await Task.Delay(pollInterval, cancellationToken).ConfigureAwait(false);
+            }
         }
 
         /// The size, in bytes, of a given Wii Remote InputDataType when reported by the Wiimote.

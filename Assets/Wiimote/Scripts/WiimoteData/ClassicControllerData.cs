@@ -2,8 +2,8 @@ using WiimoteApi.Util;
 
 namespace WiimoteApi
 {
-	public class ClassicControllerData : WiimoteData
-	{
+    public partial class ClassicControllerData : WiimoteData
+    {
 
         /// Classic Controller left stick analog values.  This is a size-2 array [X,Y]
         /// of RAW (unprocessed) stick data.  These values are in the range 0-63
@@ -12,7 +12,7 @@ namespace WiimoteApi
         /// \sa GetLeftStick01()
         public ReadOnlyArray<byte> lstick => _lstick_readonly;
         private ReadOnlyArray<byte> _lstick_readonly;
-		private byte[] _lstick;
+        private byte[] _lstick;
 
         /// Classic Controller right stick analog values.  This is a size-2 array [X,Y]
         /// of RAW (unprocessed) stick data.  These values are in the range 0-31
@@ -24,7 +24,7 @@ namespace WiimoteApi
         /// \sa GetRightStick01()
         public ReadOnlyArray<byte> rstick => _rstick_readonly;
         private ReadOnlyArray<byte> _rstick_readonly;
-		private byte[] _rstick;
+        private byte[] _rstick;
 
         /// Classic Controller left trigger analog value.  This is RAW (unprocessed) analog
         /// data.  It is in the range 0-31 (with 0 being unpressed and 31 being fully pressed).
@@ -102,86 +102,86 @@ namespace WiimoteApi
         public bool dpad_right => _dpad_right;
         private bool _dpad_right;
 
-		public ClassicControllerData(Wiimote owner) : base(owner)
-		{
-			_lstick = new byte[2];
-			_lstick_readonly = new ReadOnlyArray<byte>(_lstick);
+        public ClassicControllerData(Wiimote owner) : base(owner)
+        {
+            _lstick = new byte[2];
+            _lstick_readonly = new ReadOnlyArray<byte>(_lstick);
 
-			_rstick = new byte[2];
-			_rstick_readonly = new ReadOnlyArray<byte>(_rstick);
-		}
+            _rstick = new byte[2];
+            _rstick_readonly = new ReadOnlyArray<byte>(_rstick);
+        }
 
-		public override bool InterpretData(byte[] data)
-		{
-			if (data == null || data.Length < 6)
-				return false;
+        public override bool InterpretData(byte[] data)
+        {
+            if (data == null || data.Length < 6)
+                return false;
 
-			_lstick[0] = (byte)(data[0] & 0x3f);
-			_lstick[1] = (byte)(data[1] & 0x3f);
+            _lstick[0] = (byte)(data[0] & 0x3f);
+            _lstick[1] = (byte)(data[1] & 0x3f);
 
-			_rstick[0] = (byte)(((data[0] & 0xc0) >> 3) |
-								((data[1] & 0xc0) >> 5) |
-								((data[2] & 0x80) >> 7));
-			_rstick[1] = (byte)(data[2] & 0x1f);
+            _rstick[0] = (byte)(((data[0] & 0xc0) >> 3) |
+                                ((data[1] & 0xc0) >> 5) |
+                                ((data[2] & 0x80) >> 7));
+            _rstick[1] = (byte)(data[2] & 0x1f);
 
-			_ltrigger_range = (byte)(((data[2] & 0x60) >> 2) |
-								((data[3] & 0xe0) >> 5));
+            _ltrigger_range = (byte)(((data[2] & 0x60) >> 2) |
+                                ((data[3] & 0xe0) >> 5));
 
-			_rtrigger_range = (byte)(data[3] & 0x1f);
+            _rtrigger_range = (byte)(data[3] & 0x1f);
 
-			// Bit is zero when pressed, one when up.  This is really weird so I reverse
-			// the bit with !=
-			_dpad_right = (data[4] & 0x80) != 0x80;
-			_dpad_down = (data[4] & 0x40) != 0x40;
-			_ltrigger_switch = (data[4] & 0x20) != 0x20;
-			_minus = (data[4] & 0x10) != 0x10;
-			_home = (data[4] & 0x08) != 0x08;
-			_plus = (data[4] & 0x04) != 0x04;
-			_rtrigger_switch = (data[4] & 0x02) != 0x02;
+            // Bit is zero when pressed, one when up.  This is really weird so I reverse
+            // the bit with !=
+            _dpad_right = (data[4] & 0x80) != 0x80;
+            _dpad_down = (data[4] & 0x40) != 0x40;
+            _ltrigger_switch = (data[4] & 0x20) != 0x20;
+            _minus = (data[4] & 0x10) != 0x10;
+            _home = (data[4] & 0x08) != 0x08;
+            _plus = (data[4] & 0x04) != 0x04;
+            _rtrigger_switch = (data[4] & 0x02) != 0x02;
 
-			_zl = (data[5] & 0x80) != 0x80;
-			_b = (data[5] & 0x40) != 0x40;
-			_y = (data[5] & 0x20) != 0x20;
-			_a = (data[5] & 0x10) != 0x10;
-			_x = (data[5] & 0x08) != 0x08;
-			_zr = (data[5] & 0x04) != 0x04;
-			_dpad_left = (data[5] & 0x02) != 0x02;
-			_dpad_up = (data[5] & 0x01) != 0x01;
+            _zl = (data[5] & 0x80) != 0x80;
+            _b = (data[5] & 0x40) != 0x40;
+            _y = (data[5] & 0x20) != 0x20;
+            _a = (data[5] & 0x10) != 0x10;
+            _x = (data[5] & 0x08) != 0x08;
+            _zr = (data[5] & 0x04) != 0x04;
+            _dpad_left = (data[5] & 0x02) != 0x02;
+            _dpad_up = (data[5] & 0x01) != 0x01;
 
-			return true;
-		}
+            return true;
+        }
 
-		/// Returns the left stick analog values in the range 0-1.
-		///
-		/// \warning This does not take into account zero points or deadzones.  Likewise it does not guaruntee that 0.5f
-		///			 is the zero point.  You must do these calibrations yourself.
-		public float[] GetLeftStick01()
-		{
-			float[] ret = new float[2];
-			for (int x = 0; x < 2; x++)
-			{
-				ret[x] = lstick[x];
-				ret[x] /= 63;
-			}
-			return ret;
-		}
+        /// Returns the left stick analog values in the range 0-1.
+        ///
+        /// \warning This does not take into account zero points or deadzones.  Likewise it does not guaruntee that 0.5f
+        ///			 is the zero point.  You must do these calibrations yourself.
+        public float[] GetLeftStick01()
+        {
+            float[] ret = new float[2];
+            for (int x = 0; x < 2; x++)
+            {
+                ret[x] = lstick[x];
+                ret[x] /= 63;
+            }
+            return ret;
+        }
 
-		/// Returns the right stick analog values in the range 0-1.
-		///
-		/// \note The Right stick has half of the precision of the left stick due to how the Wiimote reports data.  The
-		/// 	  right stick is therefore better for less precise input.
-		///
-		/// \warning This does not take into account zero points or deadzones.  Likewise it does not guaruntee that 0.5f
-		///			 is the zero point.  You must do these calibrations yourself.
-		public float[] GetRightStick01()
-		{
-			float[] ret = new float[2];
-			for (int x = 0; x < 2; x++)
-			{
-				ret[x] = rstick[x];
-				ret[x] /= 31;
-			}
-			return ret;
-		}
-	}
+        /// Returns the right stick analog values in the range 0-1.
+        ///
+        /// \note The Right stick has half of the precision of the left stick due to how the Wiimote reports data.  The
+        /// 	  right stick is therefore better for less precise input.
+        ///
+        /// \warning This does not take into account zero points or deadzones.  Likewise it does not guaruntee that 0.5f
+        ///			 is the zero point.  You must do these calibrations yourself.
+        public float[] GetRightStick01()
+        {
+            float[] ret = new float[2];
+            for (int x = 0; x < 2; x++)
+            {
+                ret[x] = rstick[x];
+                ret[x] /= 31;
+            }
+            return ret;
+        }
+    }
 }

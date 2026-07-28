@@ -2,7 +2,7 @@ using WiimoteApi.Util;
 
 namespace WiimoteApi
 {
-    public class NunchuckData : WiimoteData
+    public partial class NunchuckData : WiimoteData
     {
         /// Nunchuck accelerometer values.  These are in the same (RAW) format
         /// as Wiimote::accel.

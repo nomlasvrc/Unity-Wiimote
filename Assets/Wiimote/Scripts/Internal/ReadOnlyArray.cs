@@ -1,50 +1,44 @@
-﻿namespace WiimoteApi.Util
+using System.Collections;
+
+namespace WiimoteApi.Util;
+
+/// <summary>A live, read-only view over an array owned by a data component.</summary>
+public sealed class ReadOnlyArray<T> : IReadOnlyList<T>
 {
-    /// A simple, immutable, read only array.  This is used for basic
-    /// data encapsulation in many of the WiimoteData subclasses.
-    public class ReadOnlyArray<T>
-    {
-        private T[] _data;
+    private readonly T[] _data;
 
-        public int Length => _data.Length;
+    public ReadOnlyArray(T[] data) =>
+        _data = data ?? throw new ArgumentNullException(nameof(data));
 
-        public ReadOnlyArray(T[] data)
-        {
-            _data = data;
-        }
+    public int Count => _data.Length;
 
-        public T this[int x]
-        {
-            get
-            {
-                return _data[x];
-            }
-        }
-    }
+    public T this[int index] => _data[index];
 
-    /// A simple, immutable, read only matrix (2-D array).  This is used for basic
-    /// data encapsulation in many of the WiimoteData subclasses.
-    public class ReadOnlyMatrix<T>
-    {
-        private T[,] _data;
+    public ReadOnlySpan<T> AsSpan() => _data;
 
-        public ReadOnlyMatrix(T[,] data)
-        {
-            _data = data;
-        }
+    public T[] ToArray() => [.. _data];
 
-        public T this[int x, int y]
-        {
-            get
-            {
-                return _data[x, y];
-            }
-        }
+    public IEnumerator<T> GetEnumerator() =>
+        ((IEnumerable<T>)_data).GetEnumerator();
 
-        /// Returns the length of this array in the given dimension.
-        public int GetLength(int dim)
-        {
-            return _data.GetLength(dim);
-        }
-    }
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+}
+
+/// <summary>A live, read-only view over a two-dimensional array.</summary>
+public sealed class ReadOnlyMatrix<T>
+{
+    private readonly T[,] _data;
+
+    public ReadOnlyMatrix(T[,] data) =>
+        _data = data ?? throw new ArgumentNullException(nameof(data));
+
+    public T this[int row, int column] => _data[row, column];
+
+    public int RowCount => _data.GetLength(0);
+
+    public int ColumnCount => _data.GetLength(1);
+
+    public int GetLength(int dimension) => _data.GetLength(dimension);
+
+    public T[,] ToArray() => (T[,])_data.Clone();
 }

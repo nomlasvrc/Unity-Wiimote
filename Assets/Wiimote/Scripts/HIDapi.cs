@@ -1,76 +1,124 @@
-﻿using System.Runtime.InteropServices;
+using System.Runtime.InteropServices;
 using System.Text;
 
-public class HIDapi
+namespace WiimoteApi;
+
+internal static class HIDapi
 {
-    private const string dllPath = "Plugins/hidapi";
+    private const string LibraryName = "hidapi";
 
-    [DllImport(dllPath)]
-    public static extern int hid_init();
+    internal static int Init() => NativeMethods.hid_init();
 
-    [DllImport(dllPath)]
-    public static extern int hid_exit();
+    internal static int Exit() => NativeMethods.hid_exit();
 
-    [DllImport(dllPath)]
-    public static extern IntPtr hid_error(IntPtr device);
+    internal static string? GetError(IntPtr device)
+    {
+        IntPtr message = NativeMethods.hid_error(device);
+        return GetWideString(message);
+    }
 
-    [DllImport(dllPath)]
-    public static extern IntPtr hid_enumerate(ushort vendor_id, ushort product_id);
+    internal static string? GetWideString(IntPtr value)
+    {
+        if (value == IntPtr.Zero)
+            return null;
+        if (OperatingSystem.IsWindows())
+            return Marshal.PtrToStringUni(value);
 
-    [DllImport(dllPath)]
-    public static extern void hid_free_enumeration(IntPtr devs);
+        // wchar_t is UTF-32 on the Unix platforms supported by HIDAPI.
+        var result = new StringBuilder();
+        for (var offset = 0; offset < 4096; offset += sizeof(int))
+        {
+            int codePoint = Marshal.ReadInt32(value, offset);
+            if (codePoint == 0)
+                return result.ToString();
 
-    [DllImport(dllPath)]
-    public static extern int hid_get_feature_report(IntPtr device, byte[] data, UIntPtr length);
+            result.Append(Rune.TryCreate(codePoint, out Rune rune) ? rune.ToString() : Rune.ReplacementChar.ToString());
+        }
 
-    [DllImport(dllPath)]
-    public static extern int hid_get_indexed_string(IntPtr device, int string_index, StringBuilder str, UIntPtr maxlen);
+        throw new InvalidDataException("HIDAPI returned an unterminated string.");
+    }
 
-    [DllImport(dllPath)]
-    public static extern int hid_get_manufacturer_string(IntPtr device, StringBuilder str, UIntPtr maxlen);
+    internal static IntPtr Enumerate(ushort vendorId, ushort productId) =>
+        NativeMethods.hid_enumerate(vendorId, productId);
 
-    [DllImport(dllPath)]
-    public static extern int hid_get_product_string(IntPtr device, StringBuilder str, UIntPtr maxlen);
+    internal static void FreeEnumeration(IntPtr devices) =>
+        NativeMethods.hid_free_enumeration(devices);
 
-    [DllImport(dllPath)]
-    public static extern int hid_get_serial_number_string(IntPtr device, StringBuilder str, UIntPtr maxlen);
+    internal static IntPtr OpenPath(string path) =>
+        NativeMethods.hid_open_path(path);
 
-    [DllImport(dllPath)]
-    public static extern IntPtr hid_open(ushort vendor_id, ushort product_id, string serial_number);
+    internal static void Close(IntPtr device) =>
+        NativeMethods.hid_close(device);
 
-    [DllImport(dllPath)]
-    public static extern void hid_close(IntPtr device);
+    internal static int Read(IntPtr device, byte[] buffer) =>
+        NativeMethods.hid_read(device, buffer, checked((nuint)buffer.Length));
 
-    [DllImport(dllPath)]
-    public static extern IntPtr hid_open_path(string path);
+    internal static int ReadTimeout(IntPtr device, byte[] buffer, TimeSpan timeout) =>
+        NativeMethods.hid_read_timeout(
+            device,
+            buffer,
+            checked((nuint)buffer.Length),
+            checked((int)timeout.TotalMilliseconds));
 
-    [DllImport(dllPath)]
-    public static extern int hid_read(IntPtr device, byte[] data, UIntPtr length);
+    internal static int Write(IntPtr device, byte[] data) =>
+        NativeMethods.hid_write(device, data, checked((nuint)data.Length));
 
-    [DllImport(dllPath)]
-    public static extern int hid_read_timeout(IntPtr dev, byte[] data, UIntPtr length, int milliseconds);
+    internal static int SetNonBlocking(IntPtr device, bool enabled) =>
+        NativeMethods.hid_set_nonblocking(device, enabled ? 1 : 0);
 
-    [DllImport(dllPath)]
-    public static extern int hid_send_feature_report(IntPtr device, byte[] data, UIntPtr length);
+    private static class NativeMethods
+    {
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int hid_init();
 
-    [DllImport(dllPath)]
-    public static extern int hid_set_nonblocking(IntPtr device, int nonblock);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int hid_exit();
 
-    [DllImport(dllPath)]
-    public static extern int hid_write(IntPtr device, byte[] data, UIntPtr length);
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern IntPtr hid_error(IntPtr device);
+
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern IntPtr hid_enumerate(ushort vendorId, ushort productId);
+
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern void hid_free_enumeration(IntPtr devices);
+
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern void hid_close(IntPtr device);
+
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        internal static extern IntPtr hid_open_path([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
+
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int hid_read(IntPtr device, [Out] byte[] data, nuint length);
+
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int hid_read_timeout(
+            IntPtr device,
+            [Out] byte[] data,
+            nuint length,
+            int milliseconds);
+
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int hid_set_nonblocking(IntPtr device, int nonBlocking);
+
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int hid_write(IntPtr device, byte[] data, nuint length);
+    }
 }
 
-internal struct hid_device_info
+[StructLayout(LayoutKind.Sequential)]
+internal readonly struct HidDeviceInfo
 {
-    public string path;
-    public ushort vendor_id;
-    public ushort product_id;
-    public string serial_number;
-    public ushort release_number;
-    public string manufacturer_string;
-    public string product_string;
-    public ushort usage_page;
-    public ushort usage;
-    public int interface_number;
-    public IntPtr next;
+    internal readonly IntPtr Path;
+    internal readonly ushort VendorId;
+    internal readonly ushort ProductId;
+    internal readonly IntPtr SerialNumber;
+    internal readonly ushort ReleaseNumber;
+    internal readonly IntPtr ManufacturerString;
+    internal readonly IntPtr ProductString;
+    internal readonly ushort UsagePage;
+    internal readonly ushort Usage;
+    internal readonly int InterfaceNumber;
+    internal readonly IntPtr Next;
 }

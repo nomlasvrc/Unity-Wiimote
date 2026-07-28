@@ -1,6 +1,6 @@
 ﻿namespace WiimoteApi
 {
-    public class ButtonData : WiimoteData
+    public partial class ButtonData : WiimoteData
     {
         /// Button: D-Pad Left
         public bool d_left => _d_left;

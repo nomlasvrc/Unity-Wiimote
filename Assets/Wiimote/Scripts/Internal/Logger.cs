@@ -1,9 +1,14 @@
-namespace WiimoteApi
+namespace WiimoteApi;
+
+/// <summary>Legacy logging facade. Subscribe to <see cref="WiimoteManager.LogMessage"/> instead.</summary>
+public abstract class Logger
 {
-    public class Logger
-    {
-        public static void Log(object message) => Console.WriteLine(message);
-        public static void LogWarning(object message) => Console.WriteLine("Warning: " + message);
-        public static void LogError(object message) => Console.WriteLine("Error: " + message);
-    }
+    protected static void Log(object? message) =>
+        WiimoteManager.Report(WiimoteLogLevel.Debug, Convert.ToString(message) ?? string.Empty);
+
+    protected static void LogWarning(object? message) =>
+        WiimoteManager.Report(WiimoteLogLevel.Warning, Convert.ToString(message) ?? string.Empty);
+
+    protected static void LogError(object? message) =>
+        WiimoteManager.Report(WiimoteLogLevel.Error, Convert.ToString(message) ?? string.Empty);
 }

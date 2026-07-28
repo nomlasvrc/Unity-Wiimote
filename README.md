@@ -1,49 +1,74 @@
-C# / Unity Wii Remote API
-=========================
+# WiimoteApi for modern .NET
 
-This is an easy to use interface between Unity3D (or C# in general with minimal changes) and a Wii Remote controller.
-The library uses a slightly modified version of [Signal11's HIDAPI](https://github.com/signal11/hidapi) to handle
-low-level bluetooth communications.  In essence, the API itself is an implementation of the excellent
-reverse-engineering effort done at [Wiibrew](http://wiibrew.org/wiki/Wiimote).  Here are some notable features of the
-API:
+WiimoteApi is a .NET 10 library for discovering and reading Nintendo Wii Remotes,
+Wii Remote Pluses, and Wii U Pro Controllers through HIDAPI.
 
-- **Cross Platform**: The API is compatible with Windows (on the Microsoft and BlueSoleil bluetooth stacks), Mac, and
-  Linux (only tested on Windows and Mac).
-- **Fully Featured**: The API is capable of communicating and interpreting almost all useful data from the Wii Remote,
-  including:
-    - Basic Button Data (A, B, +, -, 1, 2, D-Pad, Home buttons)
-    - 3-Axis Accelerometer reporting
-    - IR Camera Data (including pointing position)
-    - Extension Controller Support:
-        - *Nunchuck*: Joystick data, C and Z buttons, Accelerometer data
-        - *Classic Controller*: All Buttons (including analog buttons) and Joysticks
-        - *Wii Motion Plus*: Change in Pitch / Yaw / Roll.
-        - *Wii U Pro Controller*: All Buttons and Joysticks - The Wii U Pro Controller acts as a Wii Remote with a custom extension controller, so it is compatible with this API.
-        - *Guitar Hero Guitar Controller*: All buttons, both strum directions, whammy, slider (touchbar), and analog stick
-        - More extension controllers coming soon!  Raw data also available for custom extension controllers.
-    - Controlling the remote's 4 LEDs
-    - Status reporting (battery level, player LED state, etc.)
-    - More features coming soon!
-- **Fully Documented**: The API comes with an example scene in Unity3D that makes use of all of the API's functions.  The
-  API itself is well commented and comes with [Doxygen](http://www.stack.nl/~dimitri/doxygen/) documentation.
-- **Open and Growing**: The API is licensed under the generous MIT license (see LICENSE.txt) so you can easily use it
-  in your projects.  Source code access lets you debug easer.  Of course, it's also free!
+The repository originated as a Unity asset. The controller protocol parsers and
+native binaries remain under `Assets/Wiimote`, while `WiimoteApi.csproj` provides
+a normal SDK-style .NET build. New code should use the modern, PascalCase API;
+the most common legacy members remain as compatibility aliases.
 
-Installation
-------------
+## Requirements
 
-The latest release can be found [here](http://www.github.com/Flafla2/Unity-Wiimote/releases)
+- .NET 10 SDK
+- Bluetooth HID support
+- A compatible HIDAPI native library
 
-To install, open Unity-Wiimote.unitypackage or go to Assets->Import Package->Custom Package... in the Unity Editor and locate Unity-Wiimote.unitypackage.
+The build copies the bundled 64-bit Windows `hidapi.dll` to its output directory.
+For another operating system or architecture, provide a compatible native library
+named `hidapi` alongside the application.
 
-Future Changes
---------------
+## Build and test
 
-While the API is very powerful already, I would still like to make changes to it to improve it even more.  Namely I would
-like to:
+```powershell
+dotnet build WiimoteApi.slnx
+dotnet run --project tests/WiimoteApi.Tests
+```
 
-- Add support for all common extension controllers (Classic Controller Pro, etc.)
-    - Add support for Nunchuck passthrough / Classic Controller passthrough mode on the Wii Motion Plus
-- Add speaker support (no small feat!)
+The tests exercise report parsing without requiring controller hardware.
 
-If you would like to help implement any of these changes, feel free to submit a pull request!
+## Basic usage
+
+```csharp
+using WiimoteApi;
+
+WiimoteManager.LogMessage += (level, message) =>
+    Console.WriteLine($"[{level}] {message}");
+
+int discovered = WiimoteManager.Discover();
+
+foreach (Wiimote remote in WiimoteManager.Devices)
+{
+    remote.DataReceived += (_, report) =>
+    {
+        Console.WriteLine($"{report.ReportType}: A={remote.Button.A}");
+        Console.WriteLine($"Acceleration={remote.Accel.CalibratedAcceleration}");
+    };
+}
+
+using var stop = new CancellationTokenSource();
+await WiimoteManager.Devices[0].ReadLoopAsync(
+    TimeSpan.FromMilliseconds(2),
+    stop.Token);
+```
+
+Call `WiimoteManager.Cleanup(remote)` to close one controller. Call
+`WiimoteManager.Shutdown()` once during application shutdown to close every
+native handle and stop the writer.
+
+## API highlights
+
+- Nullable reference types and warnings-as-errors
+- Read-only device snapshots instead of a mutable global list
+- `IDisposable` device lifetime
+- Asynchronous, cancellation-aware HID writes
+- Event-based diagnostics and input notifications
+- `IReadOnlyList<T>`, `Vector2`, and `Vector3` data views
+- Bounds validation for malformed HID reports
+
+The low-level protocol implementation is based on the reverse-engineering
+documentation maintained by [WiiBrew](https://wiibrew.org/wiki/Wiimote).
+
+## License
+
+MIT. See [LICENSE.txt](LICENSE.txt).

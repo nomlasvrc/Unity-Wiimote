@@ -2,7 +2,7 @@
 
 namespace WiimoteApi
 {
-    public class StatusData : WiimoteData
+    public partial class StatusData : WiimoteData
     {
         /// Size: 4.  An array of what Player LEDs are on as reported by
         /// the Wii Remote.  This is only updated when the Wii Remote sends status reports.

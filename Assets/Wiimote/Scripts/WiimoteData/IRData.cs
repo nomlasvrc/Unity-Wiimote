@@ -3,7 +3,7 @@ using WiimoteApi.Util;
 
 namespace WiimoteApi
 {
-    public class IRData : WiimoteData
+    public partial class IRData : WiimoteData
     {
         /// \brief Size: 4x3.  Current Wii Remote RAW IR data.  Wii Remote IR data can
         ///        detect up to four IR dots.  Data = -1 if it is inapplicable (for

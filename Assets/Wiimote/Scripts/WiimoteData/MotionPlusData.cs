@@ -1,6 +1,6 @@
 ﻿namespace WiimoteApi
 {
-    public class MotionPlusData : WiimoteData
+    public partial class MotionPlusData : WiimoteData
     {
         /// The rotational velocity in the Pitch direction of the Wii Remote, as
         /// reported by the Wii Motion Plus.  Measured in degrees per second.

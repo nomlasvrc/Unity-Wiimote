@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="WiimoteApi.csproj" />
+  <Project Path="tests/WiimoteApi.Tests/WiimoteApi.Tests.csproj" />
+</Solution>
