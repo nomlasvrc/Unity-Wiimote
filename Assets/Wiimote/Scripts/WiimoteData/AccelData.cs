@@ -1,8 +1,6 @@
-﻿using WiimoteApi.Util;
-
 namespace WiimoteApi
 {
-    public partial class AccelData : WiimoteData
+    public sealed partial class AccelData : IWiimoteData
     {
         /// \brief Current remote-space acceleration, in the Wii Remote's coordinate system.
         ///        These are RAW values, so they are not with respect to a zero point.  See CalibrateAccel().
@@ -17,8 +15,6 @@ namespace WiimoteApi
         /// Up/Down:          +Z/-Z\n
         /// Left/Right:       +X/-X\n
         /// Forward/Backward: -Y/+Y\n
-        public ReadOnlyArray<int> Accel => _accel_readonly;
-        private ReadOnlyArray<int> _accel_readonly;
         private int[] _accel;
 
         /// \brief Size: 3x3. Calibration data for the accelerometer. This is not reported
@@ -34,22 +30,22 @@ namespace WiimoteApi
         /// By default this is set to experimental calibration data.
         /// 
         /// int[calibration step,calibration data] (size 3x3)
-        public int[,] accel_calib = {
+        private readonly int[,] _accelCalibration = {
                                     { 479, 478, 569 },
                                     { 472, 568, 476 },
                                     { 569, 469, 476 }
                                 };
 
-        public AccelData(Wiimote Owner)
-            : base(Owner)
+        internal AccelData()
         {
             _accel = new int[3];
-            _accel_readonly = new ReadOnlyArray<int>(_accel);
         }
 
-        public override bool InterpretData(byte[] data)
+        bool IWiimoteData.InterpretData(ReadOnlySpan<byte> data) => InterpretData(data);
+
+        internal bool InterpretData(ReadOnlySpan<byte> data)
         {
-            if (data == null || data.Length != 5) return false;
+            if (data.Length != 5) return false;
 
             // Note: data[0 - 1] is the buttons data.  data[2 - 4] is the accel data.
             // Accel data and buttons data is interleaved to reduce packet size.
@@ -67,9 +63,9 @@ namespace WiimoteApi
         ///        mode and the type of data being passed.
         /// 
         /// \sa Wiimote::ReadWiimoteData()
-        public bool InterpretDataInterleaved(byte[] data1, byte[] data2)
+        internal bool InterpretDataInterleaved(ReadOnlySpan<byte> data1, ReadOnlySpan<byte> data2)
         {
-            if (data1 == null || data2 == null || data1.Length != 21 || data2.Length != 21)
+            if (data1.Length != 21 || data2.Length != 21)
                 return false;
 
             _accel[0] = (int)data1[2] << 2;
@@ -84,48 +80,5 @@ namespace WiimoteApi
             return true;
         }
 
-        /// \brief Use current accelerometer values to update calibration data.  Use this when
-        ///        the user reports that the Wii Remote is in a calibration position.
-        /// \param step The calibration step to perform.
-        /// \sa  accel_calib,  AccelCalibrationStep
-        public void CalibrateAccel(AccelCalibrationStep step)
-        {
-            for (int x = 0; x < 3; x++)
-                accel_calib[(int)step, x] = Accel[x];
-        }
-
-        public float[] GetAccelZeroPoints()
-        {
-            float[] ret = new float[3];
-            // For each axis, find the two steps that are not affected by gravity on that axis.
-            // average these values together to get a final zero point.
-            ret[0] = ((float)accel_calib[0, 0] + (float)accel_calib[1, 0]) / 2f;
-            ret[1] = ((float)accel_calib[0, 1] + (float)accel_calib[2, 1]) / 2f;
-            ret[2] = ((float)accel_calib[1, 2] + (float)accel_calib[2, 2]) / 2f;
-            return ret;
-        }
-
-        /// \brief Calibrated Accelerometer Data using experimental calibration points.
-        ///        These values are in Wii Remote coordinates (in the direction of gravity)
-        /// \sa  CalibrateAccel(),  GetAccelZeroPoints(),  accel,  accel_calib
-        ///
-        /// Range: -1 to 1\n
-        /// Up/Down:          +Z/-Z\n
-        /// Left/Right:       +X/-X\n
-        /// Forward/Backward: -Y/+Y
-        public float[] GetCalibratedAccelData()
-        {
-            float[] o = GetAccelZeroPoints();
-
-            float x_raw = Accel[0];
-            float y_raw = Accel[1];
-            float z_raw = Accel[2];
-
-            float[] ret = new float[3];
-            ret[0] = (x_raw - o[0]) / (accel_calib[2, 0] - o[0]);
-            ret[1] = (y_raw - o[1]) / (accel_calib[1, 1] - o[1]);
-            ret[2] = (z_raw - o[2]) / (accel_calib[0, 2] - o[2]);
-            return ret;
-        }
     }
 }

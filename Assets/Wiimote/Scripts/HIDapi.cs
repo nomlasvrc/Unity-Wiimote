@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Text;
+using WiimoteApi.Internal;
 
 namespace WiimoteApi;
 
@@ -11,7 +12,7 @@ internal static class HIDapi
 
     internal static int Exit() => NativeMethods.hid_exit();
 
-    internal static string? GetError(IntPtr device)
+    internal static string? GetError(HidDeviceHandle device)
     {
         IntPtr message = NativeMethods.hid_error(device);
         return GetWideString(message);
@@ -50,20 +51,23 @@ internal static class HIDapi
     internal static void Close(IntPtr device) =>
         NativeMethods.hid_close(device);
 
-    internal static int Read(IntPtr device, byte[] buffer) =>
+    internal static int Read(HidDeviceHandle device, byte[] buffer) =>
         NativeMethods.hid_read(device, buffer, checked((nuint)buffer.Length));
 
-    internal static int ReadTimeout(IntPtr device, byte[] buffer, TimeSpan timeout) =>
+    internal static int Read(HidDeviceHandle device, byte[] buffer, int length) =>
+        NativeMethods.hid_read(device, buffer, checked((nuint)length));
+
+    internal static int ReadTimeout(HidDeviceHandle device, byte[] buffer, TimeSpan timeout) =>
         NativeMethods.hid_read_timeout(
             device,
             buffer,
             checked((nuint)buffer.Length),
             checked((int)timeout.TotalMilliseconds));
 
-    internal static int Write(IntPtr device, byte[] data) =>
+    internal static int Write(HidDeviceHandle device, byte[] data) =>
         NativeMethods.hid_write(device, data, checked((nuint)data.Length));
 
-    internal static int SetNonBlocking(IntPtr device, bool enabled) =>
+    internal static int SetNonBlocking(HidDeviceHandle device, bool enabled) =>
         NativeMethods.hid_set_nonblocking(device, enabled ? 1 : 0);
 
     private static class NativeMethods
@@ -75,7 +79,7 @@ internal static class HIDapi
         internal static extern int hid_exit();
 
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        internal static extern IntPtr hid_error(IntPtr device);
+        internal static extern IntPtr hid_error(HidDeviceHandle device);
 
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         internal static extern IntPtr hid_enumerate(ushort vendorId, ushort productId);
@@ -90,20 +94,20 @@ internal static class HIDapi
         internal static extern IntPtr hid_open_path([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
 
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        internal static extern int hid_read(IntPtr device, [Out] byte[] data, nuint length);
+        internal static extern int hid_read(HidDeviceHandle device, [Out] byte[] data, nuint length);
 
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         internal static extern int hid_read_timeout(
-            IntPtr device,
+            HidDeviceHandle device,
             [Out] byte[] data,
             nuint length,
             int milliseconds);
 
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        internal static extern int hid_set_nonblocking(IntPtr device, int nonBlocking);
+        internal static extern int hid_set_nonblocking(HidDeviceHandle device, int nonBlocking);
 
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        internal static extern int hid_write(IntPtr device, byte[] data, nuint length);
+        internal static extern int hid_write(HidDeviceHandle device, byte[] data, nuint length);
     }
 }
 

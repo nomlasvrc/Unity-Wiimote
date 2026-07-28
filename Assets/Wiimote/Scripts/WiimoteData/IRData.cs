@@ -1,9 +1,9 @@
-﻿
+using System.Numerics;
 using WiimoteApi.Util;
 
 namespace WiimoteApi
 {
-    public partial class IRData : WiimoteData
+    public sealed partial class IRData : IWiimoteData
     {
         /// \brief Size: 4x3.  Current Wii Remote RAW IR data.  Wii Remote IR data can
         ///        detect up to four IR dots.  Data = -1 if it is inapplicable (for
@@ -20,18 +20,22 @@ namespace WiimoteApi
         /// \code int[dot index, x (0) / y (1) / size (2) / xmin (3) / ymin (4) / xmax (5) / ymax (6) / intensity (7)] \endcode
         /// 
         /// \sa IRDataType, Wiimote::SetupIRCamera(IRDataType)
-        public ReadOnlyMatrix<int> ir => _ir_readonly;
+        private ReadOnlyMatrix<int> ir => _ir_readonly;
         private ReadOnlyMatrix<int> _ir_readonly;
         private int[,] _ir;
 
-        public IRData(Wiimote Owner)
-            : base(Owner)
+        private readonly Wiimote _owner;
+
+        internal IRData(Wiimote owner)
         {
+            _owner = owner;
             _ir = new int[4, 8];
             _ir_readonly = new ReadOnlyMatrix<int>(_ir);
         }
 
-        public override bool InterpretData(byte[] data)
+        bool IWiimoteData.InterpretData(ReadOnlySpan<byte> data) => InterpretData(data);
+
+        internal bool InterpretData(ReadOnlySpan<byte> data)
         {
             switch (data.Length)
             {
@@ -51,24 +55,20 @@ namespace WiimoteApi
         ///        mode and the type of data being passed.
         /// 
         /// \sa Wiimote::ReadWiimoteData()
-        public bool InterpretDataInterleaved(byte[] data1, byte[] data2)
+        internal bool InterpretDataInterleaved(ReadOnlySpan<byte> data1, ReadOnlySpan<byte> data2)
         {
-            if (data1 == null || data2 == null || data1.Length != 18 || data2.Length != 18)
+            if (data1.Length != 18 || data2.Length != 18)
                 return false;
 
-            byte[] subset = new byte[9];
             int[] res;
 
             for (int x = 0; x < 4; x++)
             {
                 int index = x * 9;
-                byte[] data = index >= 18 ? data1 : data2;
+                ReadOnlySpan<byte> data = index >= 18 ? data1 : data2;
                 index %= 18;
 
-                for (int y = index; y < index + 9; y++)
-                    subset[y - index] = data[y];
-
-                res = InterpretDataInterleaved_Subset(subset);
+                res = InterpretDataInterleaved_Subset(data.Slice(index, 9));
 
                 for (int y = 0; y < 8; y++)
                     _ir[x, y] = res[y];
@@ -77,7 +77,7 @@ namespace WiimoteApi
             return true;
         }
 
-        private int[] InterpretDataInterleaved_Subset(byte[] data)
+        private static int[] InterpretDataInterleaved_Subset(ReadOnlySpan<byte> data)
         {
             if (data.Length != 9) return new int[] { -1, -1, -1, -1, -1, -1, -1, -1 };
             if (data[0] == 0xff && data[1] == 0xff && data[2] == 0xff) return new int[] { -1, -1, -1, -1, -1, -1, -1, -1 };
@@ -96,25 +96,22 @@ namespace WiimoteApi
             return new int[] { x, y, size, xmin, ymin, xmax, ymax, inten };
         }
 
-        private void InterpretIRData10(byte[] data)
+        private void InterpretIRData10(ReadOnlySpan<byte> data)
         {
             if (data.Length != 10) return;
 
-            byte[] half = new byte[5];
-            for (int x = 0; x < 5; x++) half[x] = data[x];
-            int[,] subset = InterperetIRData10_Subset(half);
+            int[,] subset = InterperetIRData10_Subset(data[..5]);
             for (int x = 0; x < 2; x++)
                 for (int y = 0; y < 8; y++)
                     _ir[x, y] = subset[x, y];
 
-            for (int x = 0; x < 5; x++) half[x] = data[x + 5];
-            subset = InterperetIRData10_Subset(half);
+            subset = InterperetIRData10_Subset(data[5..]);
             for (int x = 0; x < 2; x++)
                 for (int y = 0; y < 8; y++)
                     _ir[x + 2, y] = subset[x, y];
         }
 
-        private int[,] InterperetIRData10_Subset(byte[] data)
+        private static int[,] InterperetIRData10_Subset(ReadOnlySpan<byte> data)
         {
             if (data.Length != 5) return new int[,] {{-1, -1, -1, -1, -1, -1, -1, -1},
                                                      {-1, -1, -1, -1, -1, -1, -1, -1}};
@@ -145,21 +142,20 @@ namespace WiimoteApi
                                 { x2, y2, -1, -1, -1, -1, -1, -1 }};
         }
 
-        private void InterpretIRData12(byte[] data)
+        private void InterpretIRData12(ReadOnlySpan<byte> data)
         {
             if (data.Length != 12) return;
             for (int x = 0; x < 4; x++)
             {
                 int i = x * 3; // starting index of data
-                byte[] subset = new byte[] { data[i], data[i + 1], data[i + 2] };
-                int[] calc = InterpretIRData12_Subset(subset);
+                int[] calc = InterpretIRData12_Subset(data.Slice(i, 3));
 
                 for (int y = 0; y < 8; y++)
                     _ir[x, y] = calc[y];
             }
         }
 
-        private int[] InterpretIRData12_Subset(byte[] data)
+        private static int[] InterpretIRData12_Subset(ReadOnlySpan<byte> data)
         {
             if (data.Length != 3) return new int[] { -1, -1, -1, -1, -1, -1, -1, -1 };
             if (data[0] == 0xff && data[1] == 0xff && data[2] == 0xff) return new int[] { -1, -1, -1, -1, -1, -1, -1, -1 };
@@ -178,7 +174,7 @@ namespace WiimoteApi
         ///
         /// This takes into account the rotation of the remote (using the Wii Remote's Accelerometer) to correct for
         /// rotational distortion.
-        public float[] GetPointingPosition()
+        private float[] GetPointingPosition()
         {
             float[] ret = new float[2];
             float[] midpoint = GetIRMidpoint();
@@ -187,9 +183,9 @@ namespace WiimoteApi
             midpoint[0] = 1 - midpoint[0] - 0.5f;
             midpoint[1] = midpoint[1] - 0.5f;
 
-            float[] accel = Owner.Accel.GetCalibratedAccelData();
+            Vector3 accel = _owner.Accel.CalibratedAcceleration;
 
-            double rotation = Math.Atan2(accel[2], accel[0]) - (Math.PI / 2.0f);
+            double rotation = Math.Atan2(accel.Z, accel.X) - (Math.PI / 2.0f);
             float cos = (float)Math.Cos(rotation);
             float sin = (float)Math.Sin(rotation);
             ret[0] = midpoint[0] * cos + midpoint[1] * sin;
@@ -206,7 +202,7 @@ namespace WiimoteApi
         ///        representing the camera-space position in X and Y.
         /// \param predict If true, and one of the IR "dots" from the sensor bar is outside of the IR camera field of view,
         ///                WiimoteApi will attempt to predict the other dot's position outside of the camera (default true).
-        public float[] GetIRMidpoint(bool predict = true)
+        private float[] GetIRMidpoint(bool predict = true)
         {
             float[] ret = new float[2];
             float[,] sensorIR = GetProbableSensorBarIR(predict);
@@ -229,7 +225,7 @@ namespace WiimoteApi
         /// Second Dimension: 0: X, 1: Y, 2: Index in \link ir \endlink (or -1 if predicted)\n
         /// Size: 2x3\n
         /// Range: 0-1 with respect to the Wii Remote Camera dimensions.  If \c predict is true this may be outside of that range.
-        public float[,] GetProbableSensorBarIR(bool predict = true)
+        private float[,] GetProbableSensorBarIR(bool predict = true)
         {
             // If necessary, change the current "sensor bar" IR indices to new ones.  This happens if one of the dots went out of focus and a new one took its place.
             // We do this because the Wii Remote reports "consistent" IR dot indices - that is, it tracks the IR dots and doesn't change their index in the IR report.

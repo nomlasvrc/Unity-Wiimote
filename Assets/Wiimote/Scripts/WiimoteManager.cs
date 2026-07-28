@@ -1,47 +1,58 @@
-using System.Collections.Concurrent;
+using System.Buffers;
 using System.Collections.ObjectModel;
 using System.Runtime.InteropServices;
+using System.Threading.Channels;
+using WiimoteApi.Internal;
 
 namespace WiimoteApi;
 
 /// <summary>Discovers Wii controllers and coordinates access to HIDAPI.</summary>
-public static class WiimoteManager
+public sealed class WiimoteManager : IDisposable
 {
     private const ushort NintendoVendorId = 0x057e;
     private const ushort WiimoteProductId = 0x0306;
     private const ushort WiimotePlusProductId = 0x0330;
 
-    private static readonly object DevicesLock = new();
-    private static readonly ConcurrentQueue<WriteRequest> WriteQueue = new();
-    private static readonly SemaphoreSlim WriteSignal = new(0);
-    private static readonly CancellationTokenSource ShutdownSource = new();
-    private static readonly Lazy<Task> WriterTask = new(
-        () => Task.Run(() => ProcessWritesAsync(ShutdownSource.Token)),
-        LazyThreadSafetyMode.ExecutionAndPublication);
+    private readonly object _devicesLock = new();
+    private readonly Channel<WriteRequest> _writeChannel;
+    private readonly Lazy<Task> _writerTask;
+    private readonly List<Wiimote> _devices = [];
+    private int _initialized;
+    private int _isDisposed;
+    private TimeSpan _minimumWriteInterval = TimeSpan.FromMilliseconds(20);
 
-    private static readonly List<Wiimote> MutableDevices = [];
-    private static int _initialized;
-    private static bool _isShutDown;
-    private static TimeSpan _minimumWriteInterval = TimeSpan.FromMilliseconds(20);
+    public WiimoteManager()
+    {
+        _writeChannel = Channel.CreateUnbounded<WriteRequest>(
+            new UnboundedChannelOptions
+            {
+                SingleReader = true,
+                SingleWriter = false,
+                AllowSynchronousContinuations = false
+            });
+        _writerTask = new Lazy<Task>(
+            ProcessWritesAsync,
+            LazyThreadSafetyMode.ExecutionAndPublication);
+    }
 
     /// <summary>Raised for diagnostic messages. No console logger is imposed on consumers.</summary>
-    public static event Action<WiimoteLogLevel, string>? LogMessage;
+    public event Action<WiimoteLogLevel, string>? LogMessage;
 
     /// <summary>Gets a stable snapshot of the currently connected controllers.</summary>
-    public static IReadOnlyList<Wiimote> Devices
+    public IReadOnlyList<Wiimote> Devices
     {
         get
         {
-            lock (DevicesLock)
-                return new ReadOnlyCollection<Wiimote>([.. MutableDevices]);
+            lock (_devicesLock)
+                return new ReadOnlyCollection<Wiimote>([.. _devices]);
         }
     }
 
     /// <summary>Enables verbose HID traffic messages through <see cref="LogMessage"/>.</summary>
-    public static bool EnableDebugLogging { get; set; }
+    public bool EnableDebugLogging { get; set; }
 
     /// <summary>Minimum delay between HID writes. Defaults to 20 milliseconds.</summary>
-    public static TimeSpan MinimumWriteInterval
+    public TimeSpan MinimumWriteInterval
     {
         get => _minimumWriteInterval;
         set => _minimumWriteInterval = value >= TimeSpan.Zero
@@ -51,19 +62,19 @@ public static class WiimoteManager
 
     /// <summary>Finds newly connected Wii Remotes, Wii Remote Pluses, and Wii U Pro Controllers.</summary>
     /// <returns>The number of newly opened controllers.</returns>
-    public static int Discover()
+    public int Discover()
     {
-        ThrowIfShutDown();
+        ThrowIfDisposed();
         EnsureInitialized();
-        return Discover(WiimoteType.WIIMOTE) + Discover(WiimoteType.WIIMOTEPLUS);
+        return Discover(WiimoteType.Original) + Discover(WiimoteType.RemotePlus);
     }
 
-    private static int Discover(WiimoteType requestedType)
+    private int Discover(WiimoteType requestedType)
     {
         ushort productId = requestedType switch
         {
-            WiimoteType.WIIMOTE => WiimoteProductId,
-            WiimoteType.WIIMOTEPLUS or WiimoteType.PROCONTROLLER => WiimotePlusProductId,
+            WiimoteType.Original => WiimoteProductId,
+            WiimoteType.RemotePlus or WiimoteType.ProController => WiimotePlusProductId,
             _ => throw new ArgumentOutOfRangeException(nameof(requestedType))
         };
 
@@ -84,25 +95,31 @@ public static class WiimoteManager
                 if (string.IsNullOrWhiteSpace(path) || ContainsPath(path))
                     continue;
 
-                IntPtr handle = HIDapi.OpenPath(path);
-                if (handle == IntPtr.Zero)
+                IntPtr rawHandle = HIDapi.OpenPath(path);
+                if (rawHandle == IntPtr.Zero)
                 {
                     Report(WiimoteLogLevel.Warning, $"HIDAPI could not open '{path}'.");
                     continue;
                 }
 
-                WiimoteType actualType = productName?.EndsWith("UC", StringComparison.Ordinal) == true
-                    ? WiimoteType.PROCONTROLLER
-                    : requestedType;
-                var remote = new Wiimote(handle, path, actualType);
+                var handle = new HidDeviceHandle(rawHandle);
+                if (HIDapi.SetNonBlocking(handle, true) < 0)
+                {
+                    Report(WiimoteLogLevel.Warning, $"HIDAPI could not enable non-blocking reads for '{path}'.");
+                    handle.Dispose();
+                    continue;
+                }
 
-                lock (DevicesLock)
-                    MutableDevices.Add(remote);
+                WiimoteType actualType = productName?.EndsWith("UC", StringComparison.Ordinal) == true
+                    ? WiimoteType.ProController
+                    : requestedType;
+                var remote = new Wiimote(this, handle, path, actualType);
+
+                lock (_devicesLock)
+                    _devices.Add(remote);
 
                 found++;
                 Report(WiimoteLogLevel.Debug, $"Found {actualType}: {path}");
-                remote.SendDataReportMode(InputDataType.REPORT_BUTTONS);
-                remote.SendStatusInfoRequest();
             }
         }
         finally
@@ -113,107 +130,115 @@ public static class WiimoteManager
         return found;
     }
 
-    private static bool ContainsPath(string path)
+    private bool ContainsPath(string path)
     {
-        lock (DevicesLock)
-            return MutableDevices.Any(device => string.Equals(device.DevicePath, path, StringComparison.Ordinal));
+        lock (_devicesLock)
+            return _devices.Any(device => string.Equals(device.DevicePath, path, StringComparison.Ordinal));
     }
 
     /// <summary>Closes and removes one controller.</summary>
-    public static void Cleanup(Wiimote remote)
+    public void Remove(Wiimote remote)
     {
         ArgumentNullException.ThrowIfNull(remote);
         remote.Dispose();
-        lock (DevicesLock)
-            MutableDevices.Remove(remote);
+    }
+
+    internal void Detach(Wiimote remote)
+    {
+        lock (_devicesLock)
+            _devices.Remove(remote);
     }
 
     /// <summary>Closes all controllers and permanently stops this manager.</summary>
-    public static void Shutdown()
+    public void Dispose()
     {
-        if (_isShutDown)
+        if (Interlocked.Exchange(ref _isDisposed, 1) != 0)
             return;
 
-        _isShutDown = true;
-        ShutdownSource.Cancel();
-        WriteSignal.Release();
+        _writeChannel.Writer.TryComplete();
+
+        if (_writerTask.IsValueCreated)
+            _writerTask.Value.GetAwaiter().GetResult();
 
         Wiimote[] devices;
-        lock (DevicesLock)
+        lock (_devicesLock)
         {
-            devices = [.. MutableDevices];
-            MutableDevices.Clear();
+            devices = [.. _devices];
+            _devices.Clear();
         }
 
         foreach (Wiimote device in devices)
             device.Dispose();
 
-        while (WriteQueue.TryDequeue(out WriteRequest? request))
-            request.Completion.TrySetCanceled();
-
-        if (WriterTask.IsValueCreated)
-        {
-            try
-            {
-                WriterTask.Value.GetAwaiter().GetResult();
-            }
-            catch (OperationCanceledException)
-            {
-            }
-        }
-
         if (Interlocked.Exchange(ref _initialized, 0) != 0)
             HIDapi.Exit();
     }
 
-    public static bool HasWiimote() => Devices.Any(device => device.IsConnected);
+    public bool HasWiimote() => Devices.Any(device => device.IsConnected);
 
     /// <summary>Queues a raw HID report and asynchronously returns the native write result.</summary>
-    public static ValueTask<int> SendRawAsync(
-        IntPtr deviceHandle,
+    internal ValueTask<int> SendRawAsync(
+        HidDeviceHandle deviceHandle,
         ReadOnlyMemory<byte> data,
         CancellationToken cancellationToken = default)
     {
-        ThrowIfShutDown();
-        if (deviceHandle == IntPtr.Zero)
-            throw new ArgumentException("A valid HID device handle is required.", nameof(deviceHandle));
+        ThrowIfDisposed();
+        ObjectDisposedException.ThrowIf(deviceHandle.IsClosed || deviceHandle.IsInvalid, deviceHandle);
         if (data.IsEmpty)
             throw new ArgumentException("A HID report cannot be empty.", nameof(data));
         cancellationToken.ThrowIfCancellationRequested();
 
         EnsureInitialized();
-        _ = WriterTask.Value;
+        _ = _writerTask.Value;
 
+        bool handleLease = false;
+        deviceHandle.DangerousAddRef(ref handleLease);
         var completion = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
-        WriteQueue.Enqueue(new WriteRequest(deviceHandle, data.ToArray(), completion, cancellationToken));
-        WriteSignal.Release();
+        var request = new WriteRequest(deviceHandle, data.ToArray(), completion, cancellationToken);
+        if (!_writeChannel.Writer.TryWrite(request))
+        {
+            deviceHandle.DangerousRelease();
+            completion.TrySetException(new ObjectDisposedException(nameof(WiimoteManager)));
+        }
+
         return new ValueTask<int>(completion.Task);
     }
 
     /// <summary>Reads a raw HID report without blocking.</summary>
-    public static int ReceiveRaw(IntPtr deviceHandle, Span<byte> buffer)
+    internal int ReceiveRaw(HidDeviceHandle deviceHandle, byte[] buffer)
     {
-        if (deviceHandle == IntPtr.Zero)
-            throw new ArgumentException("A valid HID device handle is required.", nameof(deviceHandle));
+        ArgumentNullException.ThrowIfNull(buffer);
+        ObjectDisposedException.ThrowIf(deviceHandle.IsClosed || deviceHandle.IsInvalid, deviceHandle);
+        if (buffer.Length == 0)
+            throw new ArgumentException("The receive buffer cannot be empty.", nameof(buffer));
+
+        EnsureInitialized();
+        return HIDapi.Read(deviceHandle, buffer);
+    }
+
+    /// <summary>Reads a raw HID report without blocking.</summary>
+    internal int ReceiveRaw(HidDeviceHandle deviceHandle, Span<byte> buffer)
+    {
+        ObjectDisposedException.ThrowIf(deviceHandle.IsClosed || deviceHandle.IsInvalid, deviceHandle);
         if (buffer.IsEmpty)
             throw new ArgumentException("The receive buffer cannot be empty.", nameof(buffer));
 
         EnsureInitialized();
-        byte[] rented = GC.AllocateUninitializedArray<byte>(buffer.Length);
-        HIDapi.SetNonBlocking(deviceHandle, true);
-        int result = HIDapi.Read(deviceHandle, rented);
-        if (result > 0)
-            rented.AsSpan(0, Math.Min(result, buffer.Length)).CopyTo(buffer);
-        return result;
+        byte[] rented = ArrayPool<byte>.Shared.Rent(buffer.Length);
+        try
+        {
+            int result = HIDapi.Read(deviceHandle, rented, buffer.Length);
+            if (result > 0)
+                rented.AsSpan(0, Math.Min(result, buffer.Length)).CopyTo(buffer);
+            return result;
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(rented);
+        }
     }
 
-    internal static void CloseHandle(IntPtr handle)
-    {
-        if (handle != IntPtr.Zero)
-            HIDapi.Close(handle);
-    }
-
-    internal static void Report(WiimoteLogLevel level, string message)
+    internal void Report(WiimoteLogLevel level, string message)
     {
         if (level == WiimoteLogLevel.Debug && !EnableDebugLogging)
             return;
@@ -235,7 +260,7 @@ public static class WiimoteManager
         }
     }
 
-    private static void EnsureInitialized()
+    private void EnsureInitialized()
     {
         if (Interlocked.CompareExchange(ref _initialized, 1, 0) == 0)
         {
@@ -248,44 +273,53 @@ public static class WiimoteManager
         }
     }
 
-    private static async Task ProcessWritesAsync(CancellationToken cancellationToken)
+    private async Task ProcessWritesAsync()
     {
-        while (true)
+        await foreach (WriteRequest request in _writeChannel.Reader.ReadAllAsync())
         {
-            await WriteSignal.WaitAsync(cancellationToken).ConfigureAwait(false);
-            if (!WriteQueue.TryDequeue(out WriteRequest? request))
-                continue;
-
-            if (request.CancellationToken.IsCancellationRequested)
+            try
             {
-                request.Completion.TrySetCanceled(request.CancellationToken);
-                continue;
-            }
+                if (request.CancellationToken.IsCancellationRequested)
+                {
+                    request.Completion.TrySetCanceled(request.CancellationToken);
+                    continue;
+                }
 
-            int result = HIDapi.Write(request.Handle, request.Data);
-            if (result < 0)
-            {
-                string error = HIDapi.GetError(request.Handle) ?? "Unknown HIDAPI error";
-                Report(WiimoteLogLevel.Error, $"HID write failed: {error}");
-            }
-            else
-            {
-                Report(WiimoteLogLevel.Debug, $"Sent {result} bytes: {Convert.ToHexString(request.Data)}");
-            }
+                int result = HIDapi.Write(request.Handle, request.Data);
+                if (result < 0)
+                {
+                    string error = HIDapi.GetError(request.Handle) ?? "Unknown HIDAPI error";
+                    Report(WiimoteLogLevel.Error, $"HID write failed: {error}");
+                }
+                else
+                {
+                    Report(WiimoteLogLevel.Debug, $"Sent {result} bytes: {Convert.ToHexString(request.Data)}");
+                }
 
-            request.Completion.TrySetResult(result);
-            if (MinimumWriteInterval > TimeSpan.Zero)
-                await Task.Delay(MinimumWriteInterval, cancellationToken).ConfigureAwait(false);
+                request.Completion.TrySetResult(result);
+            }
+            catch (Exception exception)
+            {
+                request.Completion.TrySetException(exception);
+            }
+            finally
+            {
+                request.Handle.DangerousRelease();
+                if (MinimumWriteInterval > TimeSpan.Zero)
+                    await Task.Delay(MinimumWriteInterval).ConfigureAwait(false);
+            }
         }
     }
 
-    private static void ThrowIfShutDown()
+    private void ThrowIfDisposed()
     {
-        ObjectDisposedException.ThrowIf(_isShutDown, typeof(WiimoteManager));
+        ObjectDisposedException.ThrowIf(
+            Volatile.Read(ref _isDisposed) != 0,
+            this);
     }
 
     private sealed record WriteRequest(
-        IntPtr Handle,
+        HidDeviceHandle Handle,
         byte[] Data,
         TaskCompletionSource<int> Completion,
         CancellationToken CancellationToken);

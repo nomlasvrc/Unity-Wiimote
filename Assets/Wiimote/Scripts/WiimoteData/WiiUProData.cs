@@ -1,8 +1,6 @@
-using WiimoteApi.Util;
-
 namespace WiimoteApi
 {
-    public partial class WiiUProData : WiimoteData
+    public sealed partial class WiiUProData : IWiimoteData
     {
 
         /// Pro Controller left stick analog values.  This is a size-2 array [X,Y]
@@ -13,8 +11,6 @@ namespace WiimoteApi
         ///		  is to prompt the user to spin the control sticks in circles and record the min/max values.
         ///
         /// \sa GetLeftStick01()
-        public ReadOnlyArray<ushort> lstick => _lstick_readonly;
-        private ReadOnlyArray<ushort> _lstick_readonly;
         private ushort[] _lstick;
 
         /// Pro Controller right stick analog values.  This is a size-2 array [X,Y]
@@ -25,76 +21,74 @@ namespace WiimoteApi
         ///		  is to prompt the user to spin the control sticks in circles and record the min/max values.
         ///
         /// \sa GetRightStick01()
-        public ReadOnlyArray<ushort> rstick => _rstick_readonly;
-        private ReadOnlyArray<ushort> _rstick_readonly;
         private ushort[] _rstick;
 
         /// Button: Left Stick Button (push down switch)
-        public bool lstick_button => _lstick_button;
+        private bool lstick_button => _lstick_button;
         private bool _lstick_button;
 
         /// Button: Right Stick Button (push down switch)
-        public bool rstick_button => _rstick_button;
+        private bool rstick_button => _rstick_button;
         private bool _rstick_button;
 
         /// Button: A
-        public bool a => _a;
+        private bool a => _a;
         private bool _a;
 
         /// Button: B
-        public bool b => _b;
+        private bool b => _b;
         private bool _b;
 
         /// Button: X
-        public bool x => _x;
+        private bool x => _x;
         private bool _x;
 
         /// Button: Y
-        public bool y => _y;
+        private bool y => _y;
         private bool _y;
 
         /// Button: + (plus)
-        public bool plus => _plus;
+        private bool plus => _plus;
         private bool _plus;
 
         /// Button: - (minus)
-        public bool minus => _minus;
+        private bool minus => _minus;
         private bool _minus;
 
         /// Button: home
-        public bool home => _home;
+        private bool home => _home;
         private bool _home;
 
         /// Button:  L
-        public bool l => _l;
+        private bool l => _l;
         private bool _l;
 
         /// Button: R
-        public bool r => _r;
+        private bool r => _r;
         private bool _r;
 
         /// Button:  ZL
-        public bool zl => _zl;
+        private bool zl => _zl;
         private bool _zl;
 
         /// Button: ZR
-        public bool zr => _zr;
+        private bool zr => _zr;
         private bool _zr;
 
         /// Button: D-Pad Up
-        public bool dpad_up => _dpad_up;
+        private bool dpad_up => _dpad_up;
         private bool _dpad_up;
 
         /// Button: D-Pad Down
-        public bool dpad_down => _dpad_down;
+        private bool dpad_down => _dpad_down;
         private bool _dpad_down;
 
         /// Button: D-Pad Left
-        public bool dpad_left => _dpad_left;
+        private bool dpad_left => _dpad_left;
         private bool _dpad_left;
 
         /// Button: D-Pad Right
-        public bool dpad_right => _dpad_right;
+        private bool dpad_right => _dpad_right;
         private bool _dpad_right;
 
         private ushort[] lmax = { 3225, 3291 };
@@ -102,18 +96,18 @@ namespace WiimoteApi
         private ushort[] rmax = { 3169, 3315 };
         private ushort[] rmin = { 852, 810 };
 
-        public WiiUProData(Wiimote owner) : base(owner)
+        internal WiiUProData()
         {
             _lstick = new ushort[2];
-            _lstick_readonly = new ReadOnlyArray<ushort>(_lstick);
 
             _rstick = new ushort[2];
-            _rstick_readonly = new ReadOnlyArray<ushort>(_rstick);
         }
 
-        public override bool InterpretData(byte[] data)
+        bool IWiimoteData.InterpretData(ReadOnlySpan<byte> data) => InterpretData(data);
+
+        internal bool InterpretData(ReadOnlySpan<byte> data)
         {
-            if (data == null || data.Length < 11)
+            if (data.Length < 11)
                 return false;
 
             _lstick[0] = (ushort)((ushort)data[0] | ((ushort)(data[1] & 0x0f) << 8));
@@ -145,36 +139,5 @@ namespace WiimoteApi
             return true;
         }
 
-        /// Returns the left stick analog values in the range 0-1.
-        ///
-        /// \warning This does not take into account zero points or deadzones.  Likewise it does not guaruntee that 0.5f
-        ///			 is the zero point.  You must do these calibrations yourself.
-        public float[] GetLeftStick01()
-        {
-            float[] ret = new float[2];
-            for (int x = 0; x < 2; x++)
-            {
-                ret[x] = lstick[x];
-                ret[x] -= lmin[x];
-                ret[x] /= lmax[x] - lmin[x];
-            }
-            return ret;
-        }
-
-        /// Returns the right stick analog values in the range 0-1.
-        ///
-        /// \warning This does not take into account zero points or deadzones.  Likewise it does not guaruntee that 0.5f
-        ///			 is the zero point.  You must do these calibrations yourself.
-        public float[] GetRightStick01()
-        {
-            float[] ret = new float[2];
-            for (int x = 0; x < 2; x++)
-            {
-                ret[x] = rstick[x];
-                ret[x] -= rmin[x];
-                ret[x] /= rmax[x] - rmin[x];
-            }
-            return ret;
-        }
     }
 }

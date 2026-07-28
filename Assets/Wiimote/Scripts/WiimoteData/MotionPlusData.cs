@@ -1,6 +1,6 @@
-﻿namespace WiimoteApi
+namespace WiimoteApi
 {
-    public partial class MotionPlusData : WiimoteData
+    public sealed partial class MotionPlusData : IWiimoteData
     {
         /// The rotational velocity in the Pitch direction of the Wii Remote, as
         /// reported by the Wii Motion Plus.  Measured in degrees per second.
@@ -72,11 +72,13 @@
         // shitty that I don't even care anymore.
         private const float MagicCalibrationConstant = 0.05f;
 
-        public MotionPlusData(Wiimote Owner) : base(Owner) { }
+        internal MotionPlusData() { }
 
-        public override bool InterpretData(byte[] data)
+        bool IWiimoteData.InterpretData(ReadOnlySpan<byte> data) => InterpretData(data);
+
+        internal bool InterpretData(ReadOnlySpan<byte> data)
         {
-            if (data == null || data.Length < 6)
+            if (data.Length < 6)
                 return false;
 
             _YawSpeedRaw = data[0];
@@ -114,7 +116,7 @@
         ///
         /// A good idea here is to reference the Accelerometer values of the Wii Remote to make sure that
         /// your simulated rotation is consistent with the actual rotation of the remote.
-        public void SetZeroValues()
+        public void CalibrateZero()
         {
             _PitchZero = _PitchSpeedRaw;
             _YawZero = _YawSpeedRaw;

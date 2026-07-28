@@ -1,8 +1,6 @@
-using WiimoteApi.Util;
-
 namespace WiimoteApi
 {
-    public partial class ClassicControllerData : WiimoteData
+    public sealed partial class ClassicControllerData : IWiimoteData
     {
 
         /// Classic Controller left stick analog values.  This is a size-2 array [X,Y]
@@ -10,8 +8,6 @@ namespace WiimoteApi
         /// in both X and Y.
         ///
         /// \sa GetLeftStick01()
-        public ReadOnlyArray<byte> lstick => _lstick_readonly;
-        private ReadOnlyArray<byte> _lstick_readonly;
         private byte[] _lstick;
 
         /// Classic Controller right stick analog values.  This is a size-2 array [X,Y]
@@ -22,98 +18,96 @@ namespace WiimoteApi
         ///       stick (the left stick is in the range 0-63 while the right is 0-31).
         ///
         /// \sa GetRightStick01()
-        public ReadOnlyArray<byte> rstick => _rstick_readonly;
-        private ReadOnlyArray<byte> _rstick_readonly;
         private byte[] _rstick;
 
         /// Classic Controller left trigger analog value.  This is RAW (unprocessed) analog
         /// data.  It is in the range 0-31 (with 0 being unpressed and 31 being fully pressed).
         ///
         /// \sa rtrigger_range, ltrigger_switch, ltrigger_switch
-        public byte ltrigger_range => _ltrigger_range;
+        private byte ltrigger_range => _ltrigger_range;
         private byte _ltrigger_range;
 
         /// Classic Controller right trigger analog value.  This is RAW (unprocessed) analog
         /// data.  It is in the range 0-31 (with 0 being unpressed and 31 being fully pressed).
         ///
         /// \sa ltrigger_range, rtrigger_switch, rtrigger_switch
-        public byte rtrigger_range => _rtrigger_range;
+        private byte rtrigger_range => _rtrigger_range;
         private byte _rtrigger_range;
 
         /// Button: Left trigger (bottom out switch)
         /// \sa rtrigger_switch, rtrigger_range, ltrigger_range
-        public bool ltrigger_switch => _ltrigger_switch;
+        private bool ltrigger_switch => _ltrigger_switch;
         private bool _ltrigger_switch;
 
         /// Button: Right trigger (button out switch)
         /// \sa ltrigger_switch, ltrigger_range, rtrigger_range
-        public bool rtrigger_switch => _rtrigger_switch;
+        private bool rtrigger_switch => _rtrigger_switch;
         private bool _rtrigger_switch;
 
         /// Button: A
-        public bool a => _a;
+        private bool a => _a;
         private bool _a;
 
         /// Button: B
-        public bool b => _b;
+        private bool b => _b;
         private bool _b;
 
         /// Button: X
-        public bool x => _x;
+        private bool x => _x;
         private bool _x;
 
         /// Button: Y
-        public bool y => _y;
+        private bool y => _y;
         private bool _y;
 
         /// Button: + (plus)
-        public bool plus => _plus;
+        private bool plus => _plus;
         private bool _plus;
 
         /// Button: - (minus)
-        public bool minus => _minus;
+        private bool minus => _minus;
         private bool _minus;
 
         /// Button: home
-        public bool home => _home;
+        private bool home => _home;
         private bool _home;
 
         /// Button:  ZL
-        public bool zl => _zl;
+        private bool zl => _zl;
         private bool _zl;
 
         /// Button: ZR
-        public bool zr => _zr;
+        private bool zr => _zr;
         private bool _zr;
 
         /// Button: D-Pad Up
-        public bool dpad_up => _dpad_up;
+        private bool dpad_up => _dpad_up;
         private bool _dpad_up;
 
         /// Button: D-Pad Down
-        public bool dpad_down => _dpad_down;
+        private bool dpad_down => _dpad_down;
         private bool _dpad_down;
 
         /// Button: D-Pad Left
-        public bool dpad_left => _dpad_left;
+        private bool dpad_left => _dpad_left;
         private bool _dpad_left;
 
         /// Button: D-Pad Right
-        public bool dpad_right => _dpad_right;
+        private bool dpad_right => _dpad_right;
         private bool _dpad_right;
 
-        public ClassicControllerData(Wiimote owner) : base(owner)
+        internal ClassicControllerData()
         {
             _lstick = new byte[2];
-            _lstick_readonly = new ReadOnlyArray<byte>(_lstick);
 
             _rstick = new byte[2];
-            _rstick_readonly = new ReadOnlyArray<byte>(_rstick);
         }
 
-        public override bool InterpretData(byte[] data)
+        bool IWiimoteData.InterpretData(ReadOnlySpan<byte> data) => InterpretData(data);
+
+        internal bool InterpretData(ReadOnlySpan<byte> data)
         {
-            if (data == null || data.Length < 6)
+            if (data.Length < 6)
                 return false;
 
             _lstick[0] = (byte)(data[0] & 0x3f);
@@ -151,37 +145,5 @@ namespace WiimoteApi
             return true;
         }
 
-        /// Returns the left stick analog values in the range 0-1.
-        ///
-        /// \warning This does not take into account zero points or deadzones.  Likewise it does not guaruntee that 0.5f
-        ///			 is the zero point.  You must do these calibrations yourself.
-        public float[] GetLeftStick01()
-        {
-            float[] ret = new float[2];
-            for (int x = 0; x < 2; x++)
-            {
-                ret[x] = lstick[x];
-                ret[x] /= 63;
-            }
-            return ret;
-        }
-
-        /// Returns the right stick analog values in the range 0-1.
-        ///
-        /// \note The Right stick has half of the precision of the left stick due to how the Wiimote reports data.  The
-        /// 	  right stick is therefore better for less precise input.
-        ///
-        /// \warning This does not take into account zero points or deadzones.  Likewise it does not guaruntee that 0.5f
-        ///			 is the zero point.  You must do these calibrations yourself.
-        public float[] GetRightStick01()
-        {
-            float[] ret = new float[2];
-            for (int x = 0; x < 2; x++)
-            {
-                ret[x] = rstick[x];
-                ret[x] /= 31;
-            }
-            return ret;
-        }
     }
 }
